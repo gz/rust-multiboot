@@ -7,6 +7,10 @@
 
 extern crate core;
 
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+
 use core::mem::{transmute};
 
 /// Value that is in rax after multiboot jumps to our entry point
