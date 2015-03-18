@@ -9,5 +9,5 @@ homepage = "https://github.com/gz/rust-multiboot"
 repository = "git@github.com:gz/rust-multiboot.git"
 
 readme = "README.md"
-keywords = ["multiboot", "multiboot1", "kernel", "os", "bootloader", "x86", "grub"]`
+keywords = ["multiboot", "multiboot1", "kernel", "os", "bootloader", "x86", "grub"]
 license = "MIT License"
