@@ -5,8 +5,7 @@ version = "0.0.1"
 authors = ["Gerd Zellweger <mail@gerdzellweger.com>"]
 
 description = "Library to access multiboot structures."
-homepage = "https://github.com/gz/rust-multiboot"
-repository = "git@github.com:gz/rust-multiboot.git"
+repository = "https://github.com/gz/rust-multiboot"
 
 readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]
