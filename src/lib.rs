@@ -17,11 +17,15 @@ pub enum MemType {
     Unusable = 2,
 }
 
+
+/// Multiboot struct clients mainly interact with
+/// To create this use Multiboot::new()
 pub struct Multiboot<'a> {
     header: &'a MultibootHeader,
     paddr_to_vaddr: fn(u64) -> u64,
 }
 
+/// Representation of Multiboot header according to specification.
 #[derive(Debug)]
 #[repr(packed)]
 struct MultibootHeader {
@@ -42,6 +46,8 @@ struct MultibootHeader {
     mmap_addr: u32,
 }
 
+/// Multiboot format of the MMAP buffer.
+/// Note that size is defined to be at -4 bytes.
 #[derive(Debug)]
 #[repr(packed)]
 struct MemEntry {
@@ -62,7 +68,18 @@ struct ElfSymbols {
 
 impl<'a> Multiboot<'a> {
 
-    /// Initializes the multiboot structure
+    /// Initializes the multiboot structure.
+    ///
+    /// # Arguments
+    ///
+    ///  * `mboot_ptr` - The physical address of the multiboot header. On qemu for example
+    ///                  this is typically at 0x9500.
+    ///  * `paddr_to_vaddr` - Translation of the physical addresses into kernel addresses.
+    ///
+    ///  `paddr_to_vaddr` translates physical it into a kernel accessible address.
+    ///  The simplest paddr_to_vaddr function would for example be just the identity
+    ///  function. But this may vary depending on how your page table layout looks like.
+    ///
     pub fn new(mboot_ptr: u64, paddr_to_vaddr: fn(paddr: u64) -> u64) -> Multiboot<'a> {
         let header = paddr_to_vaddr(mboot_ptr);
         let mb: &MultibootHeader = unsafe { transmute::<u64, &MultibootHeader>(header) };
@@ -70,7 +87,12 @@ impl<'a> Multiboot<'a> {
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
 
-    /// Discovers all memory region in the multiboot memory map
+    /// Discover all memory regions in the multiboot memory map.
+    /// 
+    /// # Arguments
+    ///  
+    ///  * `discovery_callback` - Function to notify your memory system about regions.
+    ///
     pub fn find_memory(&'a self, discovery_callback: fn(base: u64, length: u64, MemType))
     {
         let paddr_to_vaddr = self.paddr_to_vaddr;
