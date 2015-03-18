@@ -1,5 +1,9 @@
 #![feature(no_std)]
 #![feature(core)]
+
+#![crate_name = "multiboot"]
+#![crate_type = "lib"]
+
 extern crate core;
 
 use core::mem::{transmute};
