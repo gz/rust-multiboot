@@ -1,3 +1,7 @@
+#![feature(no_std)]
+#![feature(core)]
+extern crate core;
+
 use core::mem::{transmute};
 
 /// Value that is in rax after multiboot jumps to our entry point
