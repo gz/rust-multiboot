@@ -1,5 +1,5 @@
 #![feature(no_std)]
-#![feature(core)]
+#![no_std]
 
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
