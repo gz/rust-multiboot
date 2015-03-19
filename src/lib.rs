@@ -8,15 +8,15 @@
 extern crate core;
 
 #[cfg(test)]
-#[macro_use]
 extern crate std;
 
 use core::mem::{transmute};
+use core::ops::FnMut;
 
 /// Value that is in rax after multiboot jumps to our entry point
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MemType {
     RAM = 1,
     Unusable = 2,
@@ -98,7 +98,7 @@ impl<'a> Multiboot<'a> {
     ///  
     ///  * `discovery_callback` - Function to notify your memory system about regions.
     ///
-    pub fn find_memory(&'a self, discovery_callback: fn(base: u64, length: u64, MemType))
+    pub fn find_memory<F: FnMut(u64, u64, MemType)>(&'a self, mut discovery_callback: F)
     {
         let paddr_to_vaddr = self.paddr_to_vaddr;
 
