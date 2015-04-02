@@ -12,6 +12,8 @@ extern crate std;
 
 use core::mem::{transmute};
 use core::ops::FnMut;
+use core::raw;
+use core::str;
 
 /// Value that is in rax after multiboot jumps to our entry point
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
@@ -71,6 +73,35 @@ struct ElfSymbols {
     shndx: u32,
 }
 
+/// Multiboot module structure
+#[derive(Debug)]
+#[repr(packed)]
+struct Module {
+    /// Start address of module in memory.
+    start: u32,
+    /// End address of module in memory.
+    end: u32,
+    /// Name of module.
+    string: u32,
+    /// Must be zero.
+    reserved: u32
+}
+
+/// Convert a C string into a [u8 slice and from there into a &'static str.
+/// This unsafe block builds on assumption that multiboot strings are sane.
+fn convert_safe_c_string(cstring: *const u8) -> &'static str {
+    unsafe {
+        let mut iter = cstring;
+        while *iter != 0 {
+            iter = iter.offset(1);
+        }
+
+        let slice = raw::Slice { data: cstring, len: iter as usize - cstring as usize };
+        let byte_array: &'static [u8] = transmute(slice);
+        str::from_utf8_unchecked(byte_array)
+    }
+}
+
 impl<'a> Multiboot<'a> {
 
     /// Initializes the multiboot structure.
@@ -92,14 +123,21 @@ impl<'a> Multiboot<'a> {
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
 
+    pub fn has_mmap(&'a self) -> bool {
+        self.header.flags & 0x1 > 0
+    }
+
     /// Discover all memory regions in the multiboot memory map.
-    /// 
+    ///
     /// # Arguments
-    ///  
+    ///
     ///  * `discovery_callback` - Function to notify your memory system about regions.
     ///
-    pub fn find_memory<F: FnMut(u64, u64, MemType)>(&'a self, mut discovery_callback: F)
-    {
+    pub fn find_memory<F: FnMut(u64, u64, MemType)>(&'a self, mut discovery_callback: F) {
+        if !self.has_mmap() {
+            return
+        }
+
         let paddr_to_vaddr = self.paddr_to_vaddr;
 
         let mut current = self.header.mmap_addr;
@@ -119,4 +157,30 @@ impl<'a> Multiboot<'a> {
         }
     }
 
+    pub fn has_modules(&'a self) -> bool {
+        self.header.flags & 0x3 > 0
+    }
+
+    /// Discover all additional modules in multiboot.
+    ///
+    /// # Arguments
+    ///
+    ///  * `discovery_callback` - Function to notify your system about modules.
+    ///
+    pub fn find_modules<F: FnMut(&'static str, u64, u64)>(&'a self, mut discovery_callback: F) {
+        if !self.has_modules() {
+            return
+        }
+
+        let paddr_to_vaddr = self.paddr_to_vaddr;
+
+        let module_start = paddr_to_vaddr(self.header.mods_addr as u64);
+        let count: usize = self.header.mods_count as usize;
+        for _ in 0..count {
+            let current: &Module = unsafe { transmute::<u64, &Module>(module_start) };
+            let path = unsafe { convert_safe_c_string(transmute::<u64, *const u8>(paddr_to_vaddr(current.string as u64))) };
+
+            discovery_callback(path, paddr_to_vaddr(current.start as u64), paddr_to_vaddr(current.end as u64));
+        }
+    }
 }
