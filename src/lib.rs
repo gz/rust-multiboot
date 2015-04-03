@@ -158,7 +158,7 @@ impl<'a> Multiboot<'a> {
     }
 
     pub fn has_modules(&'a self) -> bool {
-        self.header.flags & 0x3 > 0
+        self.header.flags & (1<<3) > 0
     }
 
     /// Discover all additional modules in multiboot.
