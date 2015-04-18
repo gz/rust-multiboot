@@ -24,12 +24,14 @@ pub enum MemType {
     Unusable = 2,
 }
 
+pub type PAddr = u64;
+pub type VAddr = usize;
 
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
 pub struct Multiboot<'a> {
     header: &'a MultibootHeader,
-    paddr_to_vaddr: fn(u64) -> u64,
+    paddr_to_vaddr: fn(PAddr) -> VAddr,
 }
 
 /// Representation of Multiboot header according to specification.
@@ -116,9 +118,9 @@ impl<'a> Multiboot<'a> {
     ///  The simplest paddr_to_vaddr function would for example be just the identity
     ///  function. But this may vary depending on how your page table layout looks like.
     ///
-    pub fn new(mboot_ptr: u64, paddr_to_vaddr: fn(paddr: u64) -> u64) -> Multiboot<'a> {
+    pub fn new(mboot_ptr: u64, paddr_to_vaddr: fn(paddr: PAddr) -> VAddr) -> Multiboot<'a> {
         let header = paddr_to_vaddr(mboot_ptr);
-        let mb: &MultibootHeader = unsafe { transmute::<u64, &MultibootHeader>(header) };
+        let mb: &MultibootHeader = unsafe { transmute::<VAddr, &MultibootHeader>(header) };
 
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
@@ -144,7 +146,7 @@ impl<'a> Multiboot<'a> {
         let end = self.header.mmap_addr + self.header.mmap_length;
         while current < end
         {
-            let memory_region: &MemEntry = unsafe { transmute::<u64, &MemEntry>(paddr_to_vaddr(current as u64)) };
+            let memory_region: &MemEntry = unsafe { transmute::<VAddr, &MemEntry>(paddr_to_vaddr(current as u64)) };
 
             let mtype = match memory_region.mtype {
                 1 => MemType::RAM,
@@ -167,7 +169,7 @@ impl<'a> Multiboot<'a> {
     ///
     ///  * `discovery_callback` - Function to notify your system about modules.
     ///
-    pub fn find_modules<F: FnMut(&'static str, u64, u64)>(&'a self, mut discovery_callback: F) {
+    pub fn find_modules<F: FnMut(&'static str, VAddr, VAddr)>(&'a self, mut discovery_callback: F) {
         if !self.has_modules() {
             return
         }
@@ -177,10 +179,10 @@ impl<'a> Multiboot<'a> {
         let module_start = paddr_to_vaddr(self.header.mods_addr as u64);
         let count: usize = self.header.mods_count as usize;
         for _ in 0..count {
-            let current: &Module = unsafe { transmute::<u64, &Module>(module_start) };
-            let path = unsafe { convert_safe_c_string(transmute::<u64, *const u8>(paddr_to_vaddr(current.string as u64))) };
+            let current: &Module = unsafe { transmute::<VAddr, &Module>(module_start) };
+            let path = unsafe { convert_safe_c_string(transmute::<VAddr, *const u8>(paddr_to_vaddr(current.string as u64))) };
 
-            discovery_callback(path, paddr_to_vaddr(current.start as u64), paddr_to_vaddr(current.end as u64));
+            discovery_callback(path, paddr_to_vaddr(current.start as PAddr), paddr_to_vaddr(current.end as PAddr));
         }
     }
 }
