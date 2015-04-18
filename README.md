@@ -10,7 +10,9 @@ This is a multiboot (v1) library written in rust to be used in kernel level code
 let multiboot = Multiboot::new(mboot_ptr, paddr_to_kernel_vaddr);
 
 // Find all available memory regions:
-let cb = | base, size, mtype | { println!("Found new memory region: {:x} -- {:x}, base, base+size); };
+let cb = | base, size, mtype | { 
+    println!("Found new memory region: {:x} -- {:x}, base, base+size); 
+};
 multiboot.find_memory(cb);
 
 // Find all multiboot provided modules:
