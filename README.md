@@ -19,7 +19,7 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
 
     // Find all available memory regions:
     let cb = | base, size, mtype | { 
-        println!("Found new memory region: {:x} -- {:x}, base, base+size); 
+        println!("Found new memory region: {:x} -- {:x}", base, base+size); 
     };
     multiboot.find_memory(cb);
 
