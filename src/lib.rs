@@ -1,3 +1,10 @@
+//! Multiboot v1 library
+//!
+//! # Additional documentation
+//!   * https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
+//!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
+//!
+
 #![feature(no_std)]
 #![feature(core)]
 #![feature(raw)]
@@ -16,9 +23,10 @@ use core::ops::FnMut;
 use core::raw;
 use core::str;
 
-/// Value that is in rax after multiboot jumps to our entry point
+/// Value found in %rax after multiboot jumps to our entry point.
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
 
+/// Types that define if the memory is usable or not.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemType {
     RAM = 1,
@@ -31,14 +39,53 @@ pub type VAddr = usize;
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
 pub struct Multiboot<'a> {
-    header: &'a MultibootHeader,
+    header: &'a MultibootInfo,
     paddr_to_vaddr: fn(PAddr) -> VAddr,
 }
 
 /// Representation of Multiboot header according to specification.
+////
+///<rawtext>
+///         +-------------------+
+/// 0       | flags             |    (required)
+///         +-------------------+
+/// 4       | mem_lower         |    (present if flags[0] is set)
+/// 8       | mem_upper         |    (present if flags[0] is set)
+///         +-------------------+
+/// 12      | boot_device       |    (present if flags[1] is set)
+///         +-------------------+
+/// 16      | cmdline           |    (present if flags[2] is set)
+///         +-------------------+
+/// 20      | mods_count        |    (present if flags[3] is set)
+/// 24      | mods_addr         |    (present if flags[3] is set)
+///         +-------------------+
+/// 28 - 40 | syms              |    (present if flags[4] or
+///         |                   |                flags[5] is set)
+///         +-------------------+
+/// 44      | mmap_length       |    (present if flags[6] is set)
+/// 48      | mmap_addr         |    (present if flags[6] is set)
+///         +-------------------+
+/// 52      | drives_length     |    (present if flags[7] is set)
+/// 56      | drives_addr       |    (present if flags[7] is set)
+///         +-------------------+
+/// 60      | config_table      |    (present if flags[8] is set)
+///         +-------------------+
+/// 64      | boot_loader_name  |    (present if flags[9] is set)
+///         +-------------------+
+/// 68      | apm_table         |    (present if flags[10] is set)
+///         +-------------------+
+/// 72      | vbe_control_info  |    (present if flags[11] is set)
+/// 76      | vbe_mode_info     |
+/// 80      | vbe_mode          |
+/// 82      | vbe_interface_seg |
+/// 84      | vbe_interface_off |
+/// 86      | vbe_interface_len |
+///         +-------------------+
+///</rawtext>
+///
 #[derive(Debug)]
 #[repr(packed)]
-struct MultibootHeader {
+struct MultibootInfo {
     flags: u32,
 
     mem_lower: u32,
@@ -54,10 +101,26 @@ struct MultibootHeader {
 
     mmap_length: u32,
     mmap_addr: u32,
+
+    drives_length: u32,
+    drives_addr: u32,
+
+    config_table: u32,
+
+    boot_loader_name: u32,
+
+    apm_table: u32,
+
+    vbe_control_info: u32,
+    vbe_mode_info: u32,
+    vbe_mode: u16,
+    vbe_interface_off: u16,
+    vbe_interface_len: u16
 }
 
 /// Multiboot format of the MMAP buffer.
-/// Note that size is defined to be at -4 bytes.
+///
+/// Note that size is defined to be at -4 bytes in multiboot.
 #[derive(Debug)]
 #[repr(packed)]
 struct MemEntry {
@@ -67,6 +130,7 @@ struct MemEntry {
     mtype: u32
 }
 
+/// ELF Symbols
 #[derive(Debug)]
 #[repr(packed)]
 struct ElfSymbols {
@@ -76,7 +140,7 @@ struct ElfSymbols {
     shndx: u32,
 }
 
-/// Multiboot module structure
+/// Multiboot module representation
 #[derive(Debug)]
 #[repr(packed)]
 struct Module {
@@ -121,7 +185,7 @@ impl<'a> Multiboot<'a> {
     ///
     pub fn new(mboot_ptr: u64, paddr_to_vaddr: fn(paddr: PAddr) -> VAddr) -> Multiboot<'a> {
         let header = paddr_to_vaddr(mboot_ptr);
-        let mb: &MultibootHeader = unsafe { transmute::<VAddr, &MultibootHeader>(header) };
+        let mb: &MultibootInfo = unsafe { transmute::<VAddr, &MultibootInfo>(header) };
 
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
