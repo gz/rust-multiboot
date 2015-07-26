@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["SIGNATURE_RAX","Value found in %rax after multiboot jumps to our entry point."]],"enum":[["MemType","Types that define if the memory is usable or not."]],"struct":[["Multiboot","Multiboot struct clients mainly interact with To create this use Multiboot::new()"]],"type":[["PAddr",""],["VAddr",""]]});
