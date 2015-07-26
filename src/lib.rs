@@ -88,7 +88,18 @@ pub struct Multiboot<'a> {
 struct MultibootInfo {
     flags: u32,
 
+    /// Indicate the amount of lower memory in kilobytes.
+    ///
+    /// Lower memory starts at address 0. The maximum possible value for
+    /// lower memory is 640 kilobytes.
     mem_lower: u32,
+
+    /// Indicate the amount of upper memory in kilobytes.
+    ///
+    /// Upper memory starts at address 1 megabyte.
+    /// The value returned for upper memory is maximally the address of
+    /// the first upper memory hole minus 1 megabyte. It is not guaranteed
+    /// to be this value.
     mem_upper: u32,
 
     boot_device: u32,
@@ -169,6 +180,26 @@ fn convert_safe_c_string(cstring: *const u8) -> &'static str {
     }
 }
 
+macro_rules! check_flag {
+    ($doc:meta, $fun:ident, $bit:expr) => (
+        #[$doc]
+        pub fn $fun(&self) -> bool {
+            //assert!($bit <= 31);
+            (self.header.flags & (1 << $bit)) > 0
+        }
+    );
+
+    // syms field is valid if bit 4 or 5 is set, wtf?
+    ($doc:meta, $fun:ident, $bit1:expr, $bit2:expr) => (
+        #[$doc]
+        pub fn $fun(&self) -> bool {
+            //assert!($bit1 <= 31);
+            //assert!($bit2 <= 31);
+            (self.header.flags & (1 << $bit1)) > 0 || (self.header.flags & (1 << $bit2)) > 0
+        }
+    );
+}
+
 impl<'a> Multiboot<'a> {
 
     /// Initializes the multiboot structure.
@@ -190,9 +221,28 @@ impl<'a> Multiboot<'a> {
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
 
-    pub fn has_mmap(&'a self) -> bool {
-        self.header.flags & 0x1 > 0
-    }
+    check_flag!(doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
+               has_memory_bounds, 0);
+    check_flag!(doc = "If true, then the `boot_device` field is valid.",
+               has_boot_device, 1);
+    check_flag!(doc = "If true, then the `cmdline` field is valid.",
+               has_cmdline, 2);
+    check_flag!(doc = "If true, then the `mods_addr` and `mods_count` fields are valid.",
+               has_modules, 3);
+    check_flag!(doc = "If true, then the `syms` field is valid.",
+               has_symbols, 4, 5);
+    check_flag!(doc = "If true, then the `mmap_addr` and `mmap_length` fields are valid.",
+               has_memory_map, 6);
+    check_flag!(doc = "If true, then the `drives_addr` and `drives_length` fields are valid.",
+               has_drives, 7);
+    check_flag!(doc = "If true, then the `config_table` field is valid.",
+               has_config_table, 8);
+    check_flag!(doc = "If true, then the `boot_loader_name` field is valid.",
+               has_boot_loader_name, 9);
+    check_flag!(doc = "If true, then the `apm_table` field is valid.",
+               has_apm_table, 10);
+    check_flag!(doc = "If true, then the `vbe_*` fields are valid.",
+               has_vbe, 11);
 
     /// Discover all memory regions in the multiboot memory map.
     ///
@@ -201,7 +251,7 @@ impl<'a> Multiboot<'a> {
     ///  * `discovery_callback` - Function to notify your memory system about regions.
     ///
     pub fn find_memory<F: FnMut(u64, u64, MemType)>(&'a self, mut discovery_callback: F) {
-        if !self.has_mmap() {
+        if !self.has_memory_map() {
             return
         }
 
@@ -222,10 +272,6 @@ impl<'a> Multiboot<'a> {
             discovery_callback(memory_region.base_addr, memory_region.length, mtype);
             current += memory_region.size + 4;
         }
-    }
-
-    pub fn has_modules(&'a self) -> bool {
-        self.header.flags & (1<<3) > 0
     }
 
     /// Discover all additional modules in multiboot.
