@@ -1,11 +1,12 @@
 [package]
-
 name = "multiboot"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Gerd Zellweger <mail@gerdzellweger.com>"]
 
 description = "Library to access multiboot structures."
+homepage = "https://github.com/gz/rust-multiboot"
 repository = "https://github.com/gz/rust-multiboot"
+documentation = "http://gz.github.io/rust-multiboot/multiboot/"
 
 readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]

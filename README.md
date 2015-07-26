@@ -1,6 +1,4 @@
-# Multiboot
-
-[![Build Status](https://travis-ci.org/gz/rust-multiboot.svg)](https://travis-ci.org/gz/rust-multiboot)
+# Multiboot [![Build Status](https://travis-ci.org/gz/rust-multiboot.svg)](https://travis-ci.org/gz/rust-multiboot) [![Crates.io](https://img.shields.io/crates/v/multiboot.svg)](https://crates.io/crates/multiboot)
 
 This is a multiboot (v1) library written in rust to be used in kernel level code. The code depends only on libcore. 
 
@@ -32,3 +30,6 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
 ```
 
 Functionality is still not complete and Patches are welcome!
+
+## Documentation
+* [API Documentation](http://gz.github.io/rust-multiboot/multiboot/)
