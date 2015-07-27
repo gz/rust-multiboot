@@ -45,18 +45,13 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-740' class='srclink' href='../src/multiboot/lib.rs.html#290-301' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-740' class='srclink' href='../src/multiboot/lib.rs.html#285-296' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct BootDevice {
     pub drive: <a href='http://doc.rust-lang.org/nightly/core/primitive.u8.html'>u8</a>,
     pub partition1: <a href='http://doc.rust-lang.org/nightly/core/primitive.u8.html'>u8</a>,
     pub partition2: <a href='http://doc.rust-lang.org/nightly/core/primitive.u8.html'>u8</a>,
     pub partition3: <a href='http://doc.rust-lang.org/nightly/core/primitive.u8.html'>u8</a>,
 }</pre><div class='docblock'><p>The ‘boot_device’ field.</p>
-
-<p>It is laid out as follows, each of the blocks is one byte:
- +-------+-------+-------+-------+
- | part3 | part2 | part1 | drive |
- +-------+-------+-------+-------+</p>
 
 <p>Partition numbers always start from zero. Unused partition
 bytes must be set to 0xFF. For example, if the disk is partitioned

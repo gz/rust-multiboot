@@ -65,28 +65,6 @@ To create this use Multiboot::new()</p>
 The simplest paddr_to_vaddr function would for example be just the identity
 function. But this may vary depending on how your page table layout looks like.</p></li>
 </ul>
-</div><h4 id='method.has_memory_bounds' class='method'><code>fn <a href='#method.has_memory_bounds' class='fnname'>has_memory_bounds</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>mem_upper</code> and <code>mem_lower</code> fields are valid.</p>
-</div><h4 id='method.has_boot_device' class='method'><code>fn <a href='#method.has_boot_device' class='fnname'>has_boot_device</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>boot_device</code> field is valid.</p>
-</div><h4 id='method.has_cmdline' class='method'><code>fn <a href='#method.has_cmdline' class='fnname'>has_cmdline</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>cmdline</code> field is valid.</p>
-</div><h4 id='method.has_modules' class='method'><code>fn <a href='#method.has_modules' class='fnname'>has_modules</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>mods_addr</code> and <code>mods_count</code> fields are valid.</p>
-</div><h4 id='method.has_symbols' class='method'><code>fn <a href='#method.has_symbols' class='fnname'>has_symbols</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>syms</code> field is valid.</p>
-</div><h4 id='method.has_memory_map' class='method'><code>fn <a href='#method.has_memory_map' class='fnname'>has_memory_map</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>mmap_addr</code> and <code>mmap_length</code> fields are valid.</p>
-</div><h4 id='method.has_drives' class='method'><code>fn <a href='#method.has_drives' class='fnname'>has_drives</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>drives_addr</code> and <code>drives_length</code> fields are valid.</p>
-</div><h4 id='method.has_config_table' class='method'><code>fn <a href='#method.has_config_table' class='fnname'>has_config_table</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>config_table</code> field is valid.</p>
-</div><h4 id='method.has_boot_loader_name' class='method'><code>fn <a href='#method.has_boot_loader_name' class='fnname'>has_boot_loader_name</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>boot_loader_name</code> field is valid.</p>
-</div><h4 id='method.has_apm_table' class='method'><code>fn <a href='#method.has_apm_table' class='fnname'>has_apm_table</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>apm_table</code> field is valid.</p>
-</div><h4 id='method.has_vbe' class='method'><code>fn <a href='#method.has_vbe' class='fnname'>has_vbe</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/core/primitive.bool.html'>bool</a></code></h4>
-<div class='docblock'><p>If true, then the <code>vbe_*</code> fields are valid.</p>
 </div><h4 id='method.lower_memory_bound' class='method'><code>fn <a href='#method.lower_memory_bound' class='fnname'>lower_memory_bound</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/core/primitive.u32.html'>u32</a>&gt;</code></h4>
 <div class='docblock'><p>Indicate the amount of lower memory in kilobytes.</p>
 
