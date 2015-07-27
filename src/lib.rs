@@ -5,9 +5,7 @@
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
 
-#![feature(no_std)]
-#![feature(core)]
-#![feature(raw)]
+#![feature(core, core_prelude, prelude_import, no_std, raw)]
 #![no_std]
 
 #![crate_name = "multiboot"]
@@ -18,20 +16,15 @@ extern crate core;
 #[cfg(test)]
 extern crate std;
 
+use core::prelude::*;
+
 use core::mem::{transmute};
-use core::ops::FnMut;
 use core::raw;
 use core::str;
+use core::slice;
 
 /// Value found in %rax after multiboot jumps to our entry point.
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
-
-/// Types that define if the memory is usable or not.
-#[derive(Debug, PartialEq, Eq)]
-pub enum MemType {
-    RAM = 1,
-    Unusable = 2,
-}
 
 pub type PAddr = u64;
 pub type VAddr = usize;
@@ -84,25 +77,16 @@ pub struct Multiboot<'a> {
 ///</rawtext>
 ///
 #[derive(Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 struct MultibootInfo {
     flags: u32,
 
-    /// Indicate the amount of lower memory in kilobytes.
-    ///
-    /// Lower memory starts at address 0. The maximum possible value for
-    /// lower memory is 640 kilobytes.
     mem_lower: u32,
-
-    /// Indicate the amount of upper memory in kilobytes.
-    ///
-    /// Upper memory starts at address 1 megabyte.
-    /// The value returned for upper memory is maximally the address of
-    /// the first upper memory hole minus 1 megabyte. It is not guaranteed
-    /// to be this value.
     mem_upper: u32,
 
-    boot_device: u32,
+    boot_device: BootDevice,
+
+    /// The command line is a normal C-style zero-terminated string.
     cmdline: u32,
 
     mods_count: u32,
@@ -127,42 +111,6 @@ struct MultibootInfo {
     vbe_mode: u16,
     vbe_interface_off: u16,
     vbe_interface_len: u16
-}
-
-/// Multiboot format of the MMAP buffer.
-///
-/// Note that size is defined to be at -4 bytes in multiboot.
-#[derive(Debug)]
-#[repr(packed)]
-struct MemEntry {
-    size: u32,
-    base_addr: u64,
-    length: u64,
-    mtype: u32
-}
-
-/// ELF Symbols
-#[derive(Debug)]
-#[repr(packed)]
-struct ElfSymbols {
-    num: u32,
-    size: u32,
-    addr: u32,
-    shndx: u32,
-}
-
-/// Multiboot module representation
-#[derive(Debug)]
-#[repr(packed)]
-struct Module {
-    /// Start address of module in memory.
-    start: u32,
-    /// End address of module in memory.
-    end: u32,
-    /// Name of module.
-    string: u32,
-    /// Must be zero.
-    reserved: u32
 }
 
 /// Convert a C string into a [u8 slice and from there into a &'static str.
@@ -200,6 +148,7 @@ macro_rules! check_flag {
     );
 }
 
+/// Multiboot structure.
 impl<'a> Multiboot<'a> {
 
     /// Initializes the multiboot structure.
@@ -244,56 +193,280 @@ impl<'a> Multiboot<'a> {
     check_flag!(doc = "If true, then the `vbe_*` fields are valid.",
                has_vbe, 11);
 
-    /// Discover all memory regions in the multiboot memory map.
+    /// Indicate the amount of lower memory in kilobytes.
     ///
-    /// # Arguments
-    ///
-    ///  * `discovery_callback` - Function to notify your memory system about regions.
-    ///
-    pub fn find_memory<F: FnMut(u64, u64, MemType)>(&'a self, mut discovery_callback: F) {
-        if !self.has_memory_map() {
-            return
+    /// Lower memory starts at address 0. The maximum possible value for
+    /// lower memory is 640 kilobytes.
+    pub fn lower_memory_bound(&self) -> Option<u32> {
+        match self.has_memory_bounds() {
+            true => Some(self.header.mem_lower),
+            false => None
         }
+    }
 
+    /// Indicate the amount of upper memory in kilobytes.
+    ///
+    /// Upper memory starts at address 1 megabyte.
+    /// The value returned for upper memory is maximally the address of
+    /// the first upper memory hole minus 1 megabyte. It is not guaranteed
+    /// to be this value.
+    pub fn upper_memory_bound(&self) -> Option<u32> {
+        match self.has_memory_bounds() {
+            true => Some(self.header.mem_upper),
+            false => None
+        }
+    }
+
+    /// Indicates which bios disk device the boot loader loaded the OS image from.
+    ///
+    /// If the OS image was not loaded from a bios disk, then this
+    /// returns None.
+    /// The operating system may use this field as a hint for determining its
+    /// own root device, but is not required to.
+    pub fn boot_device(&self) -> Option<BootDevice> {
+        match self.has_boot_device() {
+            true => Some(self.header.boot_device.clone()),
+            false => None
+        }
+    }
+
+    /// Command line to be passed to the kernel.
+    pub fn command_line(&self) -> Option<&'static str> {
         let paddr_to_vaddr = self.paddr_to_vaddr;
 
-        let mut current = self.header.mmap_addr;
-        let end = self.header.mmap_addr + self.header.mmap_length;
-        while current < end
-        {
-            let memory_region: &MemEntry = unsafe { transmute::<VAddr, &MemEntry>(paddr_to_vaddr(current as u64)) };
-
-            let mtype = match memory_region.mtype {
-                1 => MemType::RAM,
-                2 => MemType::Unusable,
-                _ => MemType::Unusable
-            };
-
-            discovery_callback(memory_region.base_addr, memory_region.length, mtype);
-            current += memory_region.size + 4;
+        match self.has_cmdline() {
+            true => {
+                let command_line_str = unsafe {
+                    let cstring = transmute(paddr_to_vaddr(self.header.cmdline as *const u8 as PAddr));
+                    convert_safe_c_string(cstring)
+                };
+                Some(command_line_str)
+            },
+            false => None
         }
     }
 
     /// Discover all additional modules in multiboot.
-    ///
-    /// # Arguments
-    ///
-    ///  * `discovery_callback` - Function to notify your system about modules.
-    ///
-    pub fn find_modules<F: FnMut(&'static str, VAddr, VAddr)>(&'a self, mut discovery_callback: F) {
-        if !self.has_modules() {
-            return
-        }
-
-        let paddr_to_vaddr = self.paddr_to_vaddr;
-
-        let module_start = paddr_to_vaddr(self.header.mods_addr as u64);
-        let count: usize = self.header.mods_count as usize;
-        for _ in 0..count {
-            let current: &Module = unsafe { transmute::<VAddr, &Module>(module_start) };
-            let path = unsafe { convert_safe_c_string(transmute::<VAddr, *const u8>(paddr_to_vaddr(current.string as u64))) };
-
-            discovery_callback(path, paddr_to_vaddr(current.start as PAddr), paddr_to_vaddr(current.end as PAddr));
+    pub fn modules(&'a self) -> Option<ModuleIter> {
+        match self.has_modules() {
+            true => Some(ModuleIter { mb: self, current: 0 }),
+            false => None
         }
     }
+
+    /// Discover all memory regions in the multiboot memory map.
+    pub fn memory_regions(&'a self) -> Option<MemoryMapIter> {
+        match self.has_memory_map() {
+            true => {
+                let start = self.header.mmap_addr;
+                let end = self.header.mmap_addr + self.header.mmap_length;
+                Some(MemoryMapIter { current: start, end: end, mb: self })
+            }
+            false => None
+        }
+    }
+}
+
+
+/// The ‘boot_device’ field.
+///
+/// It is laid out as follows, each of the blocks is one byte:
+///  +-------+-------+-------+-------+
+///  | part3 | part2 | part1 | drive |
+///  +-------+-------+-------+-------+
+///
+/// Partition numbers always start from zero. Unused partition
+/// bytes must be set to 0xFF. For example, if the disk is partitioned
+/// using a simple one-level DOS partitioning scheme, then
+/// ‘part’ contains the DOS partition number, and ‘part2’ and ‘part3’
+/// are both 0xFF. As another example, if a disk is partitioned first into
+/// DOS partitions, and then one of those DOS partitions is subdivided
+/// into several BSD partitions using BSD's disklabel strategy, then ‘part1’
+/// contains the DOS partition number, ‘part2’ contains the BSD sub-partition
+/// within that DOS partition, and ‘part3’ is 0xFF.
+///
+#[derive(Debug, Clone)]
+#[repr(C, packed)]
+pub struct BootDevice {
+    /// Contains the bios drive number as understood by
+    /// the bios INT 0x13 low-level disk interface: e.g. 0x00 for the
+    /// first floppy disk or 0x80 for the first hard disk.
+    pub drive: u8,
+    /// Specifies the top-level partition number.
+    pub partition1: u8,
+    /// Specifies a sub-partition in the top-level partition
+    pub partition2: u8,
+    /// Specifies a sub-partition in the 2nd-level partition
+    pub partition3: u8
+}
+
+impl BootDevice {
+
+    /// Is partition1 a valid partition?
+    pub fn partition1_is_valid(&self) -> bool {
+        self.partition1 != 0xff
+    }
+
+    /// Is partition2 a valid partition?
+    pub fn partition2_is_valid(&self) -> bool {
+        self.partition2 != 0xff
+    }
+
+    /// Is partition3 a valid partition?
+    pub fn partition3_is_valid(&self) -> bool {
+        self.partition3 != 0xff
+    }
+}
+
+/// Types that define if the memory is usable or not.
+#[derive(Debug, PartialEq, Eq)]
+pub enum MemoryType {
+    RAM = 1,
+    Unusable = 2,
+}
+
+/// Multiboot format of the MMAP buffer.
+///
+/// Note that size is defined to be at -4 bytes in multiboot.
+#[derive(Debug)]
+#[repr(C, packed)]
+pub struct MemoryEntry {
+    size: u32,
+    base_addr: u64,
+    length: u64,
+    mtype: u32
+}
+
+impl MemoryEntry {
+
+    /// Get base of memory region.
+    pub fn base_address(&self) -> PAddr {
+        self.base_addr as PAddr
+    }
+
+    /// Get size of the memory region.
+    pub fn length(&self) -> u64 {
+        self.length
+    }
+
+    /// Is the region type valid RAM?
+    pub fn memory_type(&self) -> MemoryType {
+        match self.mtype {
+            1 => MemoryType::RAM,
+            _ => MemoryType::Unusable
+        }
+    }
+}
+
+/// Used to iterate over all memory regions provided by multiboot.
+pub struct MemoryMapIter<'a> {
+    mb: &'a Multiboot<'a>,
+    current: u32,
+    end: u32,
+}
+
+impl<'a> Iterator for MemoryMapIter<'a> {
+    type Item = &'a MemoryEntry;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a MemoryEntry> {
+        let paddr_to_vaddr = self.mb.paddr_to_vaddr;
+
+        if self.current < self.end {
+            let memory_region: &MemoryEntry = unsafe {
+                transmute::<VAddr, &MemoryEntry>(paddr_to_vaddr(self.current as PAddr))
+            };
+
+            self.current += memory_region.size + 4;
+            return Some(memory_region);
+        }
+
+        return None
+    }
+}
+
+/// Multiboot format to information about module
+#[derive(Debug)]
+#[repr(packed)]
+struct MBModule {
+    /// Start address of module in memory.
+    start: u32,
+
+    /// End address of module in memory.
+    end: u32,
+
+    /// The `string` field provides an arbitrary string to be associated
+    /// with that particular boot module.
+    ///
+    /// It is a zero-terminated ASCII string, just like the kernel command line.
+    /// The `string` field may be 0 if there is no string associated with the module.
+    /// Typically the string might be a command line (e.g. if the operating system
+    /// treats boot modules as executable programs), or a pathname
+    /// (e.g. if the operating system treats boot modules as files in a file system),
+    /// but its exact use is specific to the operating system.
+    string: u32,
+
+    /// Must be zero.
+    reserved: u32
+}
+
+pub struct Module {
+    /// Start address of module in kernel addressable memory.
+    pub start: VAddr,
+    /// End address of module in kernel addressable memory.
+    pub end: VAddr,
+    /// Name of the module.
+    pub string: &'static str
+}
+
+impl Module {
+    fn new(start: VAddr, end: VAddr, name: &'static str) -> Module {
+        Module{start: start, end: end, string: name}
+    }
+}
+
+/// Used to iterate over all modules in multiboot.
+pub struct ModuleIter<'a> {
+    mb: &'a Multiboot<'a>,
+    current: usize,
+}
+
+impl<'a> Iterator for ModuleIter<'a> {
+    type Item = Module;
+
+    #[inline]
+    fn next(&mut self) -> Option<Module> {
+        let paddr_to_vaddr = self.mb.paddr_to_vaddr;
+        let modules = unsafe {
+            slice::from_raw_parts(
+                transmute::<VAddr, &MBModule>(
+                    paddr_to_vaddr(self.mb.header.mods_addr as PAddr)),
+                    self.mb.header.mods_count as usize)
+        };
+
+
+        if self.current < self.mb.header.mods_count as usize {
+            let ref m = modules[self.current];
+            let cstring = paddr_to_vaddr(m.string as *const u8 as PAddr);
+            let module = Module::new(
+                paddr_to_vaddr(m.start as PAddr),
+                paddr_to_vaddr(m.end as PAddr),
+                convert_safe_c_string(cstring as *const u8)
+            );
+            self.current += 1;
+            return Some(module);
+        }
+
+        None
+    }
+}
+
+/// Multiboot format for ELF Symbols
+#[derive(Debug)]
+#[repr(C, packed)]
+struct ElfSymbols {
+    num: u32,
+    size: u32,
+    addr: u32,
+    shndx: u32,
 }
