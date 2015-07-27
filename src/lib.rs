@@ -131,7 +131,7 @@ fn convert_safe_c_string(cstring: *const u8) -> &'static str {
 macro_rules! check_flag {
     ($doc:meta, $fun:ident, $bit:expr) => (
         #[$doc]
-        pub fn $fun(&self) -> bool {
+        fn $fun(&self) -> bool {
             //assert!($bit <= 31);
             (self.header.flags & (1 << $bit)) > 0
         }
@@ -140,7 +140,7 @@ macro_rules! check_flag {
     // syms field is valid if bit 4 or 5 is set, wtf?
     ($doc:meta, $fun:ident, $bit1:expr, $bit2:expr) => (
         #[$doc]
-        pub fn $fun(&self) -> bool {
+        fn $fun(&self) -> bool {
             //assert!($bit1 <= 31);
             //assert!($bit2 <= 31);
             (self.header.flags & (1 << $bit1)) > 0 || (self.header.flags & (1 << $bit2)) > 0
@@ -270,11 +270,6 @@ impl<'a> Multiboot<'a> {
 
 /// The ‘boot_device’ field.
 ///
-/// It is laid out as follows, each of the blocks is one byte:
-///  +-------+-------+-------+-------+
-///  | part3 | part2 | part1 | drive |
-///  +-------+-------+-------+-------+
-///
 /// Partition numbers always start from zero. Unused partition
 /// bytes must be set to 0xFF. For example, if the disk is partitioned
 /// using a simple one-level DOS partitioning scheme, then
@@ -387,7 +382,7 @@ impl<'a> Iterator for MemoryMapIter<'a> {
 
 /// Multiboot format to information about module
 #[derive(Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 struct MBModule {
     /// Start address of module in memory.
     start: u32,
@@ -419,6 +414,7 @@ pub struct Module {
     pub string: &'static str
 }
 
+/// Information about a module in multiboot.
 impl Module {
     fn new(start: VAddr, end: VAddr, name: &'static str) -> Module {
         Module{start: start, end: end, string: name}
