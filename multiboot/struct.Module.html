@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `SIGNATURE_RAX` constant in crate `multiboot`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, SIGNATURE_RAX">
+    <meta name="description" content="API documentation for the Rust `Module` struct in crate `multiboot`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Module">
 
-    <title>multiboot::SIGNATURE_RAX - Rust</title>
+    <title>multiboot::Module - Rust</title>
 
     <link rel="stylesheet" type="text/css" href="../main.css">
 
@@ -26,7 +26,7 @@
 
     <section class="sidebar">
         
-        <p class='location'><a href='index.html'>multiboot</a></p><script>window.sidebarCurrent = {name: 'SIGNATURE_RAX', ty: 'constant', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'><a href='index.html'>multiboot</a></p><script>window.sidebarCurrent = {name: 'Module', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </section>
 
     <nav class="sub">
@@ -40,14 +40,24 @@
         </form>
     </nav>
 
-    <section id='main' class="content constant">
-<h1 class='fqn'><span class='in-band'><a href='index.html'>multiboot</a>::<wbr><a class='constant' href=''>SIGNATURE_RAX</a></span><span class='out-of-band'><span id='render-detail'>
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>multiboot</a>::<wbr><a class='struct' href=''>Module</a></span><span class='out-of-band'><span id='render-detail'>
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-9' class='srclink' href='../src/multiboot/lib.rs.html#27' title='goto source code'>[src]</a></span></h1>
-<pre class='rust const'>pub const SIGNATURE_RAX: <a href='http://doc.rust-lang.org/nightly/core/primitive.u64.html'>u64</a><code> = </code><code>0x2BADB002</code></pre><div class='docblock'><p>Value found in %rax after multiboot jumps to our entry point.</p>
-</div></section>
+        </span><a id='src-1346' class='srclink' href='../src/multiboot/lib.rs.html#413-420' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Module {
+    pub start: <a class='type' href='../multiboot/type.VAddr.html' title='multiboot::VAddr'>VAddr</a>,
+    pub end: <a class='type' href='../multiboot/type.VAddr.html' title='multiboot::VAddr'>VAddr</a>,
+    pub string: &amp;'static <a href='http://doc.rust-lang.org/nightly/core/primitive.str.html'>str</a>,
+}</pre><h2 class='fields'>Fields</h2>
+<table><tr class='stab '>
+                                  <td id='structfield.start'><code>start</code></td><td><div class='docblock'><p>Start address of module in kernel addressable memory.</p>
+</div></td></tr><tr class='stab '>
+                                  <td id='structfield.end'><code>end</code></td><td><div class='docblock'><p>End address of module in kernel addressable memory.</p>
+</div></td></tr><tr class='stab '>
+                                  <td id='structfield.string'><code>string</code></td><td><div class='docblock'><p>Name of the module.</p>
+</div></td></tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
