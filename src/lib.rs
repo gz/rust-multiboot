@@ -11,6 +11,7 @@
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
 
+#[macro_use]
 extern crate core;
 
 #[cfg(test)]
@@ -22,6 +23,7 @@ use core::mem::{transmute};
 use core::raw;
 use core::str;
 use core::slice;
+use core::fmt;
 
 /// Value found in %rax after multiboot jumps to our entry point.
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
@@ -405,6 +407,7 @@ struct MBModule {
     reserved: u32
 }
 
+/// Information about a module in multiboot.
 pub struct Module {
     /// Start address of module in kernel addressable memory.
     pub start: VAddr,
@@ -414,10 +417,15 @@ pub struct Module {
     pub string: &'static str
 }
 
-/// Information about a module in multiboot.
 impl Module {
     fn new(start: VAddr, end: VAddr, name: &'static str) -> Module {
         Module{start: start, end: end, string: name}
+    }
+}
+
+impl fmt::Debug for Module {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Module {}: {:x} - {:x}", self.string, self.start, self.end)
     }
 }
 
