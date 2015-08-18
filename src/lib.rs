@@ -5,19 +5,14 @@
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
 
-#![feature(core, core_prelude, prelude_import, no_std, raw)]
+#![feature(no_std, raw)]
 #![no_std]
 
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
 
-#[macro_use]
-extern crate core;
-
 #[cfg(test)]
 extern crate std;
-
-use core::prelude::*;
 
 use core::mem::{transmute};
 use core::raw;
