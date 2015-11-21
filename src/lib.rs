@@ -160,9 +160,12 @@ impl<'a> Multiboot<'a> {
     ///  The simplest paddr_to_vaddr function would for example be just the identity
     ///  function. But this may vary depending on how your page table layout looks like.
     ///
-    pub fn new(mboot_ptr: u64, paddr_to_vaddr: fn(paddr: PAddr) -> VAddr) -> Multiboot<'a> {
+    /// # Safety
+    /// The user must ensure that mboot_ptr holds the physical address of a valid
+    /// Multiboot1 structure and that paddr_to_vaddr provides correct translations.
+    pub unsafe fn new(mboot_ptr: PAddr, paddr_to_vaddr: fn(paddr: PAddr) -> VAddr) -> Multiboot<'a> {
         let header = paddr_to_vaddr(mboot_ptr);
-        let mb: &MultibootInfo = unsafe { transmute::<VAddr, &MultibootInfo>(header) };
+        let mb: &MultibootInfo = transmute::<VAddr, &MultibootInfo>(header);
 
         Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
     }
