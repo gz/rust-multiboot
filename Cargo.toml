@@ -1,7 +1,7 @@
 [package]
 name = "multiboot"
 version = "0.1.1"
-authors = ["Gerd Zellweger <mail@gerdzellweger.com>"]
+authors = ["Gerd Zellweger <mail@gerdzellweger.com>", "Dan Schatzberg <schatzberg.dan@gmail.com>"]
 
 description = "Library to access multiboot structures."
 homepage = "https://github.com/gz/rust-multiboot"
