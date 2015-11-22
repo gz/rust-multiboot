@@ -22,7 +22,7 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
 
         mb.modules().map(|modules| {
             for module in modules {
-                log!("Found {:?}", module);
+                println!("Found {:?}", module);
             }
         });
     });
