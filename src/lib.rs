@@ -15,10 +15,8 @@
 extern crate std;
 
 use core::mem::{size_of, transmute};
-use core::raw;
 use core::str;
 use core::slice;
-use core::fmt;
 
 /// Value found in %rax after multiboot jumps to our entry point.
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
@@ -416,7 +414,8 @@ struct MBModule {
 }
 
 /// Information about a module in multiboot.
-pub struct Module {
+#[derive(Debug)]
+pub struct Module<'a> {
     /// Start address of module in physical memory.
     pub start: PAddr,
     /// End address of module in physic memory.
@@ -428,12 +427,6 @@ pub struct Module {
 impl Module {
     fn new(start: PAddr, end: PAddr, name: &'static str) -> Module {
         Module{start: start, end: end, string: name}
-    }
-}
-
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Module {}: {:x} - {:x}", self.string, self.start, self.end)
     }
 }
 
