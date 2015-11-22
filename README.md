@@ -13,7 +13,7 @@ pub unsafe fn paddr_to_slice<'a>(p: PAddr, sz: usize) -> Option<&'a [u8]> {
 /// mboot_ptr is the initial pointer to the multiboot structure
 /// provided in %ebx on start-up.
 pub fn use_multiboot(mboot_ptr: PAddr) {
-    Multiboot::new(mboot_ptr,  memory::paddr_to_kernel_vaddr).map(|mb| {
+    Multiboot::new(mboot_ptr,  paddr_to_slice).map(|mb| {
         mb.memory_regions().map(|regions| {
             for region in regions {
                 println!("Found {:?}", region);
@@ -24,7 +24,7 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
             for module in modules {
                 log!("Found {:?}", module);
             }
-            });
+        });
     });
 }
 ```
