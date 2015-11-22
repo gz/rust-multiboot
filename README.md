@@ -4,26 +4,28 @@ This is a multiboot (v1) library written entirely in rust. The code depends only
 
 ## How-to use
 ```rust
-/// Translate a physical memory address into a kernel addressable location.
-pub fn paddr_to_kernel_vaddr(p: PAddr) -> VAddr {
-    (p + KERNEL_BASE) as VAddr
+/// Translate a physical memory address and size into a slice
+pub unsafe fn paddr_to_slice<'a>(p: PAddr, sz: usize) -> Option<&'a [u8]> {
+    let ptr = mem::transmute(p + KERNEL_BASE);
+    Some(slice::from_raw_parts(ptr, sz)
 }
 
 /// mboot_ptr is the initial pointer to the multiboot structure
 /// provided in %ebx on start-up.
 pub fn use_multiboot(mboot_ptr: PAddr) {
-    let mb = Multiboot::new(mboot_ptr,  memory::paddr_to_kernel_vaddr);
-    mb.memory_regions().map(|regions| {
-        for region in regions {
-            println!("Found {:?}", region);
-        }
-    });
+    Multiboot::new(mboot_ptr,  memory::paddr_to_kernel_vaddr).map(|mb| {
+        mb.memory_regions().map(|regions| {
+            for region in regions {
+                println!("Found {:?}", region);
+            }
+        });
 
-    mb.modules().map(|modules| {
-        for module in modules {
-            log!("Found {:?}", module);
-        }
-    }
+        mb.modules().map(|modules| {
+            for module in modules {
+                log!("Found {:?}", module);
+            }
+            });
+    });
 }
 ```
 

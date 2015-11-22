@@ -5,7 +5,7 @@
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
 
-#![feature(no_std, raw)]
+#![feature(core_slice_ext, no_std, raw)]
 #![no_std]
 
 #![crate_name = "multiboot"]
@@ -14,7 +14,7 @@
 #[cfg(test)]
 extern crate std;
 
-use core::mem::{transmute};
+use core::mem::{size_of, transmute};
 use core::raw;
 use core::str;
 use core::slice;
@@ -24,13 +24,12 @@ use core::fmt;
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
 
 pub type PAddr = u64;
-pub type VAddr = usize;
 
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
 pub struct Multiboot<'a> {
     header: &'a MultibootInfo,
-    paddr_to_vaddr: fn(PAddr) -> VAddr,
+    paddr_to_slice: unsafe fn(PAddr, usize) -> Option<&'a [u8]>,
 }
 
 /// Representation of Multiboot header according to specification.
@@ -154,20 +153,27 @@ impl<'a> Multiboot<'a> {
     ///
     ///  * `mboot_ptr` - The physical address of the multiboot header. On qemu for example
     ///                  this is typically at 0x9500.
-    ///  * `paddr_to_vaddr` - Translation of the physical addresses into kernel addresses.
+    ///  * `paddr_to_slice` - Translation of the physical addresses into kernel addresses.
     ///
-    ///  `paddr_to_vaddr` translates physical it into a kernel accessible address.
-    ///  The simplest paddr_to_vaddr function would for example be just the identity
+    ///  `paddr_to_slice` translates physical addr + size into a kernel accessible slice.
+    ///  The simplest paddr_to_slice function would for example be just the identity
     ///  function. But this may vary depending on how your page table layout looks like.
     ///
     /// # Safety
     /// The user must ensure that mboot_ptr holds the physical address of a valid
-    /// Multiboot1 structure and that paddr_to_vaddr provides correct translations.
-    pub unsafe fn new(mboot_ptr: PAddr, paddr_to_vaddr: fn(paddr: PAddr) -> VAddr) -> Multiboot<'a> {
-        let header = paddr_to_vaddr(mboot_ptr);
-        let mb: &MultibootInfo = transmute::<VAddr, &MultibootInfo>(header);
+    /// Multiboot1 structure and that paddr_to_slice provides correct translations.
+    pub unsafe fn new(mboot_ptr: PAddr,
+                      paddr_to_slice: unsafe fn(paddr: PAddr, sz: usize) -> Option<&'a [u8]>) -> Option<Multiboot<'a>> {
+        paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(|inner| {
+            let info = transmute(inner.as_ptr());
+            Multiboot { header: info, paddr_to_slice: paddr_to_slice }
+        })
+    }
 
-        Multiboot { header: mb, paddr_to_vaddr: paddr_to_vaddr }
+    unsafe fn cast<T>(&self, addr: PAddr) -> Option<&T> {
+        (self.paddr_to_slice)(addr, size_of::<T>()).map(|inner| {
+            transmute(inner.as_ptr())
+        })
     }
 
     check_flag!(doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
@@ -232,25 +238,31 @@ impl<'a> Multiboot<'a> {
 
     /// Command line to be passed to the kernel.
     pub fn command_line(&self) -> Option<&'static str> {
-        let paddr_to_vaddr = self.paddr_to_vaddr;
-
-        match self.has_cmdline() {
-            true => {
-                let command_line_str = unsafe {
-                    let cstring = transmute(paddr_to_vaddr(self.header.cmdline as *const u8 as PAddr));
-                    convert_safe_c_string(cstring)
-                };
-                Some(command_line_str)
-            },
-            false => None
+        if self.has_cmdline() {
+            unsafe {
+                self.cast(self.header.cmdline as PAddr)
+                    .map(|cstring| convert_safe_c_string(cstring))
+            }
+        } else {
+            None
         }
     }
 
     /// Discover all additional modules in multiboot.
     pub fn modules(&'a self) -> Option<ModuleIter> {
-        match self.has_modules() {
-            true => Some(ModuleIter { mb: self, current: 0 }),
-            false => None
+        if self.has_modules() {
+            unsafe {
+                (self.paddr_to_slice)(self.header.mods_addr as PAddr,
+                                      self.header.mods_count as usize *
+                                      size_of::<MBModule>()).map(|slice| {
+                                          let ptr = transmute(slice.as_ptr());
+                                          let mods = slice::from_raw_parts(ptr,
+                                                                           self.header.mods_count as usize);
+                                          ModuleIter { mb: &self, mods: mods}
+                                      })
+            }
+        } else {
+            None
         }
     }
 
@@ -365,18 +377,16 @@ impl<'a> Iterator for MemoryMapIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<&'a MemoryEntry> {
-        let paddr_to_vaddr = self.mb.paddr_to_vaddr;
-
         if self.current < self.end {
-            let memory_region: &MemoryEntry = unsafe {
-                transmute::<VAddr, &MemoryEntry>(paddr_to_vaddr(self.current as PAddr))
-            };
-
-            self.current += memory_region.size + 4;
-            return Some(memory_region);
+            unsafe {
+                self.mb.cast(self.current as PAddr).map(|region: &'a MemoryEntry| {
+                    self.current += region.size + 4;
+                    region
+                })
+            }
+        } else {
+            None
         }
-
-        return None
     }
 }
 
@@ -407,16 +417,16 @@ struct MBModule {
 
 /// Information about a module in multiboot.
 pub struct Module {
-    /// Start address of module in kernel addressable memory.
-    pub start: VAddr,
-    /// End address of module in kernel addressable memory.
-    pub end: VAddr,
+    /// Start address of module in physical memory.
+    pub start: PAddr,
+    /// End address of module in physic memory.
+    pub end: PAddr,
     /// Name of the module.
     pub string: &'static str
 }
 
 impl Module {
-    fn new(start: VAddr, end: VAddr, name: &'static str) -> Module {
+    fn new(start: PAddr, end: PAddr, name: &'static str) -> Module {
         Module{start: start, end: end, string: name}
     }
 }
@@ -430,7 +440,7 @@ impl fmt::Debug for Module {
 /// Used to iterate over all modules in multiboot.
 pub struct ModuleIter<'a> {
     mb: &'a Multiboot<'a>,
-    current: usize,
+    mods: &'a [MBModule],
 }
 
 impl<'a> Iterator for ModuleIter<'a> {
@@ -438,28 +448,16 @@ impl<'a> Iterator for ModuleIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Module> {
-        let paddr_to_vaddr = self.mb.paddr_to_vaddr;
-        let modules = unsafe {
-            slice::from_raw_parts(
-                transmute::<VAddr, &MBModule>(
-                    paddr_to_vaddr(self.mb.header.mods_addr as PAddr)),
-                    self.mb.header.mods_count as usize)
-        };
-
-
-        if self.current < self.mb.header.mods_count as usize {
-            let ref m = modules[self.current];
-            let cstring = paddr_to_vaddr(m.string as *const u8 as PAddr);
-            let module = Module::new(
-                paddr_to_vaddr(m.start as PAddr),
-                paddr_to_vaddr(m.end as PAddr),
-                convert_safe_c_string(cstring as *const u8)
-            );
-            self.current += 1;
-            return Some(module);
-        }
-
-        None
+        self.mods.split_first().and_then(|(first, rest)| {
+            self.mods = rest;
+            unsafe {
+                self.mb.cast(first.string as PAddr).map(|cstring| {
+                    Module::new(first.start as PAddr,
+                                first.end as PAddr,
+                                convert_safe_c_string(cstring))
+                })
+            }
+        })
     }
 }
 
