@@ -24,17 +24,17 @@
 
     
 
-    <section class="sidebar">
+    <nav class="sidebar">
         
         <p class='location'><a href='index.html'>multiboot</a></p><script>window.sidebarCurrent = {name: 'Multiboot', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
-    </section>
+    </nav>
 
     <nav class="sub">
         <form class="search-form js-only">
             <div class="search-container">
                 <input class="search-input" name="search"
                        autocomplete="off"
-                       placeholder="Click or press 'S' to search, '?' for more options..."
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
                        type="search">
             </div>
         </form>
@@ -45,90 +45,102 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-19' class='srclink' href='../src/multiboot/lib.rs.html#36-39' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-9' class='srclink' href='../src/multiboot/lib.rs.html#28-31' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Multiboot&lt;'a&gt; {
     // some fields omitted
 }</pre><div class='docblock'><p>Multiboot struct clients mainly interact with
 To create this use Multiboot::new()</p>
 </div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;'a&gt; <a class='struct' href='../multiboot/struct.Multiboot.html' title='multiboot::Multiboot'>Multiboot</a>&lt;'a&gt;</code></h3><div class='docblock'><p>Multiboot structure.</p>
-</div><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(mboot_ptr: <a href='http://doc.rust-lang.org/nightly/core/primitive.u64.html'>u64</a>, paddr_to_vaddr: fn(paddr: <a class='type' href='../multiboot/type.PAddr.html' title='multiboot::PAddr'>PAddr</a>) -&gt; <a class='type' href='../multiboot/type.VAddr.html' title='multiboot::VAddr'>VAddr</a>) -&gt; <a class='struct' href='../multiboot/struct.Multiboot.html' title='multiboot::Multiboot'>Multiboot</a>&lt;'a&gt;</code></h4>
+</div><div class='impl-items'><h4 id='method.new' class='method'><code>unsafe fn <a href='#method.new' class='fnname'>new</a>(mboot_ptr: <a class='type' href='../multiboot/type.PAddr.html' title='multiboot::PAddr'>PAddr</a>, paddr_to_slice: unsafe fn(paddr: <a class='type' href='../multiboot/type.PAddr.html' title='multiboot::PAddr'>PAddr</a>, sz: usize) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;'a [u8]&gt;) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.Multiboot.html' title='multiboot::Multiboot'>Multiboot</a>&lt;'a&gt;&gt;</code></h4>
 <div class='docblock'><p>Initializes the multiboot structure.</p>
 
-<h1 id="arguments" class='section-header'><a
-                           href="#arguments">Arguments</a></h1>
+<h1 id='arguments' class='section-header'><a href='#arguments'>Arguments</a></h1>
 <ul>
 <li><code>mboot_ptr</code> - The physical address of the multiboot header. On qemu for example
              this is typically at 0x9500.</li>
-<li><p><code>paddr_to_vaddr</code> - Translation of the physical addresses into kernel addresses.</p>
+<li><p><code>paddr_to_slice</code> - Translation of the physical addresses into kernel addresses.</p>
 
-<p><code>paddr_to_vaddr</code> translates physical it into a kernel accessible address.
-The simplest paddr_to_vaddr function would for example be just the identity
+<p><code>paddr_to_slice</code> translates physical addr + size into a kernel accessible slice.
+The simplest paddr_to_slice function would for example be just the identity
 function. But this may vary depending on how your page table layout looks like.</p></li>
 </ul>
-</div><h4 id='method.lower_memory_bound' class='method'><code>fn <a href='#method.lower_memory_bound' class='fnname'>lower_memory_bound</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/core/primitive.u32.html'>u32</a>&gt;</code></h4>
+
+<h1 id='safety' class='section-header'><a href='#safety'>Safety</a></h1>
+<p>The user must ensure that mboot_ptr holds the physical address of a valid
+Multiboot1 structure and that paddr_to_slice provides correct translations.</p>
+</div><h4 id='method.lower_memory_bound' class='method'><code>fn <a href='#method.lower_memory_bound' class='fnname'>lower_memory_bound</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;u32&gt;</code></h4>
 <div class='docblock'><p>Indicate the amount of lower memory in kilobytes.</p>
 
 <p>Lower memory starts at address 0. The maximum possible value for
 lower memory is 640 kilobytes.</p>
-</div><h4 id='method.upper_memory_bound' class='method'><code>fn <a href='#method.upper_memory_bound' class='fnname'>upper_memory_bound</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/core/primitive.u32.html'>u32</a>&gt;</code></h4>
+</div><h4 id='method.upper_memory_bound' class='method'><code>fn <a href='#method.upper_memory_bound' class='fnname'>upper_memory_bound</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;u32&gt;</code></h4>
 <div class='docblock'><p>Indicate the amount of upper memory in kilobytes.</p>
 
 <p>Upper memory starts at address 1 megabyte.
 The value returned for upper memory is maximally the address of
 the first upper memory hole minus 1 megabyte. It is not guaranteed
 to be this value.</p>
-</div><h4 id='method.boot_device' class='method'><code>fn <a href='#method.boot_device' class='fnname'>boot_device</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.BootDevice.html' title='multiboot::BootDevice'>BootDevice</a>&gt;</code></h4>
+</div><h4 id='method.boot_device' class='method'><code>fn <a href='#method.boot_device' class='fnname'>boot_device</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.BootDevice.html' title='multiboot::BootDevice'>BootDevice</a>&gt;</code></h4>
 <div class='docblock'><p>Indicates which bios disk device the boot loader loaded the OS image from.</p>
 
 <p>If the OS image was not loaded from a bios disk, then this
 returns None.
 The operating system may use this field as a hint for determining its
 own root device, but is not required to.</p>
-</div><h4 id='method.command_line' class='method'><code>fn <a href='#method.command_line' class='fnname'>command_line</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;'static <a href='http://doc.rust-lang.org/nightly/core/primitive.str.html'>str</a>&gt;</code></h4>
+</div><h4 id='method.command_line' class='method'><code>fn <a href='#method.command_line' class='fnname'>command_line</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;'a str&gt;</code></h4>
 <div class='docblock'><p>Command line to be passed to the kernel.</p>
-</div><h4 id='method.modules' class='method'><code>fn <a href='#method.modules' class='fnname'>modules</a>(&amp;'a self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.ModuleIter.html' title='multiboot::ModuleIter'>ModuleIter</a>&gt;</code></h4>
+</div><h4 id='method.modules' class='method'><code>fn <a href='#method.modules' class='fnname'>modules</a>(&amp;'a self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.ModuleIter.html' title='multiboot::ModuleIter'>ModuleIter</a>&gt;</code></h4>
 <div class='docblock'><p>Discover all additional modules in multiboot.</p>
-</div><h4 id='method.memory_regions' class='method'><code>fn <a href='#method.memory_regions' class='fnname'>memory_regions</a>(&amp;'a self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.MemoryMapIter.html' title='multiboot::MemoryMapIter'>MemoryMapIter</a>&gt;</code></h4>
+</div><h4 id='method.memory_regions' class='method'><code>fn <a href='#method.memory_regions' class='fnname'>memory_regions</a>(&amp;'a self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../multiboot/struct.MemoryMapIter.html' title='multiboot::MemoryMapIter'>MemoryMapIter</a>&gt;</code></h4>
 <div class='docblock'><p>Discover all memory regions in the multiboot memory map.</p>
 </div></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
 
-    <div id="help" class="hidden">
-        <div class="shortcuts">
-            <h1>Keyboard shortcuts</h1>
-            <dl>
-                <dt>?</dt>
-                <dd>Show this help dialog</dd>
-                <dt>S</dt>
-                <dd>Focus the search field</dd>
-                <dt>&larrb;</dt>
-                <dd>Move up in search results</dd>
-                <dt>&rarrb;</dt>
-                <dd>Move down in search results</dd>
-                <dt>&#9166;</dt>
-                <dd>Go to active search result</dd>
-            </dl>
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
         </div>
-        <div class="infos">
-            <h1>Search tricks</h1>
-            <p>
-                Prefix searches with a type followed by a colon (e.g.
-                <code>fn:</code>) to restrict the search to a given type.
-            </p>
-            <p>
-                Accepted types are: <code>fn</code>, <code>mod</code>,
-                <code>struct</code>, <code>enum</code>,
-                <code>trait</code>, <code>typedef</code> (or
-                <code>tdef</code>).
-            </p>
-            <p>
-                Search functions by type signature (e.g.
-                <code>vec -> usize</code>)
-            </p>
-        </div>
-    </div>
+    </aside>
 
     
 
