@@ -15,10 +15,8 @@
 extern crate std;
 
 use core::mem::{size_of, transmute};
-use core::raw;
 use core::str;
 use core::slice;
-use core::fmt;
 
 /// Value found in %rax after multiboot jumps to our entry point.
 pub const SIGNATURE_RAX: u64 = 0x2BADB002;
@@ -109,21 +107,6 @@ struct MultibootInfo {
     vbe_interface_len: u16
 }
 
-/// Convert a C string into a [u8 slice and from there into a &'static str.
-/// This unsafe block builds on assumption that multiboot strings are sane.
-fn convert_safe_c_string(cstring: *const u8) -> &'static str {
-    unsafe {
-        let mut iter = cstring;
-        while *iter != 0 {
-            iter = iter.offset(1);
-        }
-
-        let slice = raw::Slice { data: cstring, len: iter as usize - cstring as usize };
-        let byte_array: &'static [u8] = transmute(slice);
-        str::from_utf8_unchecked(byte_array)
-    }
-}
-
 macro_rules! check_flag {
     ($doc:meta, $fun:ident, $bit:expr) => (
         #[$doc]
@@ -174,6 +157,24 @@ impl<'a> Multiboot<'a> {
         (self.paddr_to_slice)(addr, size_of::<T>()).map(|inner| {
             transmute(inner.as_ptr())
         })
+    }
+
+    /// Convert a C string into a u8 slice and from there into a &str.
+    /// This unsafe block builds on assumption that multiboot strings are sane.
+    unsafe fn convert_c_string(&self, string: PAddr) -> Option<&'a str> {
+        if string == 0 {
+            return None;
+        }
+        let mut len = 0;
+        let mut ptr = string;
+        while let Some(byte) = self.cast::<u8>(ptr) {
+            if *byte == 0 {
+                break;
+            }
+            ptr += 1;
+            len += 1;
+        }
+        (self.paddr_to_slice)(string, len).map(|slice| str::from_utf8_unchecked(slice))
     }
 
     check_flag!(doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
@@ -237,11 +238,10 @@ impl<'a> Multiboot<'a> {
     }
 
     /// Command line to be passed to the kernel.
-    pub fn command_line(&self) -> Option<&'static str> {
+    pub fn command_line(&self) -> Option<&'a str> {
         if self.has_cmdline() {
             unsafe {
-                self.cast(self.header.cmdline as PAddr)
-                    .map(|cstring| convert_safe_c_string(cstring))
+                self.convert_c_string(self.header.cmdline as PAddr)
             }
         } else {
             None
@@ -416,24 +416,19 @@ struct MBModule {
 }
 
 /// Information about a module in multiboot.
-pub struct Module {
+#[derive(Debug)]
+pub struct Module<'a> {
     /// Start address of module in physical memory.
     pub start: PAddr,
     /// End address of module in physic memory.
     pub end: PAddr,
     /// Name of the module.
-    pub string: &'static str
+    pub string: Option<&'a str>
 }
 
-impl Module {
-    fn new(start: PAddr, end: PAddr, name: &'static str) -> Module {
+impl<'a> Module<'a> {
+    fn new(start: PAddr, end: PAddr, name: Option<&'a str>) -> Module {
         Module{start: start, end: end, string: name}
-    }
-}
-
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Module {}: {:x} - {:x}", self.string, self.start, self.end)
     }
 }
 
@@ -444,18 +439,16 @@ pub struct ModuleIter<'a> {
 }
 
 impl<'a> Iterator for ModuleIter<'a> {
-    type Item = Module;
+    type Item = Module<'a>;
 
     #[inline]
-    fn next(&mut self) -> Option<Module> {
-        self.mods.split_first().and_then(|(first, rest)| {
+    fn next(&mut self) -> Option<Module<'a>> {
+        self.mods.split_first().map(|(first, rest)| {
             self.mods = rest;
             unsafe {
-                self.mb.cast(first.string as PAddr).map(|cstring| {
-                    Module::new(first.start as PAddr,
-                                first.end as PAddr,
-                                convert_safe_c_string(cstring))
-                })
+                Module::new(first.start as PAddr,
+                            first.end as PAddr,
+                            self.mb.convert_c_string(first.string as PAddr))
             }
         })
     }
