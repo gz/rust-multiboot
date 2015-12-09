@@ -19,9 +19,9 @@ use core::str;
 use core::slice;
 
 /// Value found in %rax after multiboot jumps to our entry point.
-pub const SIGNATURE_RAX: u64 = 0x2BADB002;
+pub const SIGNATURE: usize = 0x2BADB002;
 
-pub type PAddr = u64;
+pub type PAddr = usize;
 
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
