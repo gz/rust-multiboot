@@ -11,3 +11,7 @@ documentation = "http://gz.github.io/rust-multiboot/multiboot/"
 readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]
 license = "MIT"
+
+[[test]]
+name = "mbtest"
+harness = false

@@ -5,7 +5,6 @@
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
 
-#![feature(core_slice_ext, no_std, raw)]
 #![no_std]
 
 #![crate_name = "multiboot"]
