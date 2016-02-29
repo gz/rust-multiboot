@@ -17,8 +17,8 @@ use core::mem::{size_of, transmute};
 use core::str;
 use core::slice;
 
-/// Value found in %rax after multiboot jumps to our entry point.
-pub const SIGNATURE_RAX: u64 = 0x2BADB002;
+/// Value found in %eax after multiboot jumps to our entry point.
+pub const SIGNATURE_EAX: u32 = 0x2BADB002;
 
 pub type PAddr = u64;
 
