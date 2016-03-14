@@ -4,28 +4,25 @@ This is a multiboot (v1) library written entirely in rust. The code depends only
 
 ## How-to use
 ```rust
-/// Translate a physical memory address and size into a slice
-pub unsafe fn paddr_to_slice<'a>(p: PAddr, sz: usize) -> Option<&'a [u8]> {
-    let ptr = mem::transmute(p + KERNEL_BASE);
-    Some(slice::from_raw_parts(ptr, sz)
+extern crate multiboot;
+
+use multiboot::{Multiboot, PAddr};
+use core::slice;
+use core::mem;
+
+pub fn paddr_to_slice<'a>(p: multiboot::PAddr, sz: usize) -> Option<&'a [u8]> {
+    unsafe {
+        let ptr = mem::transmute(p);
+        Some(slice::from_raw_parts(ptr, sz))
+    }
 }
 
 /// mboot_ptr is the initial pointer to the multiboot structure
 /// provided in %ebx on start-up.
 pub fn use_multiboot(mboot_ptr: PAddr) {
-    Multiboot::new(mboot_ptr,  paddr_to_slice).map(|mb| {
-        mb.memory_regions().map(|regions| {
-            for region in regions {
-                println!("Found {:?}", region);
-            }
-        });
-
-        mb.modules().map(|modules| {
-            for module in modules {
-                println!("Found {:?}", module);
-            }
-        });
-    });
+    unsafe {
+        Multiboot::new(mboot_ptr, paddr_to_slice);
+    }
 }
 ```
 
