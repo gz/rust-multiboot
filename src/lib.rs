@@ -327,8 +327,10 @@ impl BootDevice {
 /// Types that define if the memory is usable or not.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryType {
-    RAM = 1,
-    Unusable = 2,
+    Available = 1, // memory, available to OS
+    Reserved  = 2, // reserved, not available (rom, mem map dev)
+    ACPI      = 3, // ACPI Reclaim Memory
+    NVS       = 4, // ACPI NVS Memory
 }
 
 /// Multiboot format of the MMAP buffer.
@@ -358,8 +360,10 @@ impl MemoryEntry {
     /// Is the region type valid RAM?
     pub fn memory_type(&self) -> MemoryType {
         match self.mtype {
-            1 => MemoryType::RAM,
-            _ => MemoryType::Unusable
+            1 => MemoryType::Available,
+            3 => MemoryType::ACPI,
+            4 => MemoryType::NVS,
+            _ => MemoryType::Reserved
         }
     }
 }
