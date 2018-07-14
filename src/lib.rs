@@ -8,6 +8,7 @@
 #![no_std]
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
+#![deny(warnings)]
 
 use core::fmt;
 use core::fmt::Debug;
