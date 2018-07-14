@@ -67,6 +67,7 @@ pub struct Multiboot<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> {
 ///         +-------------------+
 ///</rawtext>
 ///
+#[repr(C, packed)]
 struct MultibootInfo {
     flags: u32,
 
