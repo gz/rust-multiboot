@@ -1,12 +1,17 @@
-#![feature(lang_items, start, libc)]
+#![feature(lang_items, core_intrinsics, panic_implementation)]
 #![no_std]
+#![no_main]
 
-extern crate libc;
+// Pull in the system libc library for what crt0.o likely requires.
 extern crate multiboot;
 
-use multiboot::{Multiboot, PAddr};
-use core::slice;
 use core::mem;
+use core::panic::PanicInfo;
+use core::slice;
+use multiboot::{Multiboot, PAddr};
+
+#[cfg(feature = "nightly")]
+use core::panic::PanicInfo;
 
 pub fn paddr_to_slice<'a>(p: multiboot::PAddr, sz: usize) -> Option<&'a [u8]> {
     unsafe {
@@ -23,12 +28,24 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
     }
 }
 
-
-#[start]
-fn start(_argc: isize, _argv: *const *const u8) -> isize {
+#[cfg(feature = "nightly")]
+#[no_mangle]
+#[main]
+pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     use_multiboot(0x0);
     0
 }
 
-#[lang = "eh_personality"] extern fn eh_personality() {}
-#[lang = "panic_fmt"] fn panic_fmt() -> ! { loop {} }
+#[lang = "eh_personality"]
+#[no_mangle]
+pub extern "C" fn rust_eh_personality() {}
+
+#[lang = "eh_unwind_resume"]
+#[no_mangle]
+pub extern "C" fn rust_eh_unwind_resume() {}
+
+#[panic_implementation]
+#[no_mangle]
+pub fn panic_impl(_info: &PanicInfo) -> ! {
+    loop {}
+}

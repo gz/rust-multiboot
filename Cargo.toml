@@ -1,6 +1,6 @@
 [package]
 name = "multiboot"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Gerd Zellweger <mail@gerdzellweger.com>", "Dan Schatzberg <schatzberg.dan@gmail.com>", "Adrian Danis <Adrian.Danis@nicta.com.au>", "Stephane Duverger <stephane.duverger@gmail.com>"]
 
 description = "Library to access multiboot structures."

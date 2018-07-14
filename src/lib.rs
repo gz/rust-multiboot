@@ -6,16 +6,14 @@
 //!
 
 #![no_std]
-
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
 
-#[cfg(test)]
-extern crate std;
-
+use core::fmt;
+use core::fmt::Debug;
 use core::mem::{size_of, transmute};
-use core::str;
 use core::slice;
+use core::str;
 
 /// Value found in %eax after multiboot jumps to our entry point.
 pub const SIGNATURE_EAX: u32 = 0x2BADB002;
@@ -69,8 +67,6 @@ pub struct Multiboot<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> {
 ///         +-------------------+
 ///</rawtext>
 ///
-#[derive(Debug)]
-#[repr(C, packed)]
 struct MultibootInfo {
     flags: u32,
 
@@ -85,25 +81,25 @@ struct MultibootInfo {
     mods_count: u32,
     mods_addr: u32,
 
-    elf_symbols: ElfSymbols,
+    _elf_symbols: ElfSymbols,
 
     mmap_length: u32,
     mmap_addr: u32,
 
-    drives_length: u32,
-    drives_addr: u32,
+    _drives_length: u32,
+    _drives_addr: u32,
 
-    config_table: u32,
+    _config_table: u32,
 
-    boot_loader_name: u32,
+    _boot_loader_name: u32,
 
-    apm_table: u32,
+    _apm_table: u32,
 
-    vbe_control_info: u32,
-    vbe_mode_info: u32,
-    vbe_mode: u16,
-    vbe_interface_off: u16,
-    vbe_interface_len: u16
+    _vbe_control_info: u32,
+    _vbe_mode_info: u32,
+    _vbe_mode: u16,
+    _vbe_interface_off: u16,
+    _vbe_interface_len: u16,
 }
 
 macro_rules! check_flag {
@@ -128,7 +124,6 @@ macro_rules! check_flag {
 
 /// Multiboot structure.
 impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
-
     /// Initializes the multiboot structure.
     ///
     /// # Arguments
@@ -144,18 +139,18 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     /// # Safety
     /// The user must ensure that mboot_ptr holds the physical address of a valid
     /// Multiboot1 structure and that paddr_to_slice provides correct translations.
-    pub unsafe fn new(mboot_ptr: PAddr,
-                      paddr_to_slice: F) -> Option<Multiboot<'a, F>> {
+    pub unsafe fn new(mboot_ptr: PAddr, paddr_to_slice: F) -> Option<Multiboot<'a, F>> {
         paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(|inner| {
             let info = transmute(inner.as_ptr());
-            Multiboot { header: info, paddr_to_slice: paddr_to_slice }
+            Multiboot {
+                header: info,
+                paddr_to_slice: paddr_to_slice,
+            }
         })
     }
 
     unsafe fn cast<T>(&self, addr: PAddr) -> Option<&T> {
-        (self.paddr_to_slice)(addr, size_of::<T>()).map(|inner| {
-            transmute(inner.as_ptr())
-        })
+        (self.paddr_to_slice)(addr, size_of::<T>()).map(|inner| transmute(inner.as_ptr()))
     }
 
     /// Convert a C string into a u8 slice and from there into a &str.
@@ -176,28 +171,62 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
         (self.paddr_to_slice)(string, len).map(|slice| str::from_utf8_unchecked(slice))
     }
 
-    check_flag!(doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
-               has_memory_bounds, 0);
-    check_flag!(doc = "If true, then the `boot_device` field is valid.",
-               has_boot_device, 1);
-    check_flag!(doc = "If true, then the `cmdline` field is valid.",
-               has_cmdline, 2);
-    check_flag!(doc = "If true, then the `mods_addr` and `mods_count` fields are valid.",
-               has_modules, 3);
-    check_flag!(doc = "If true, then the `syms` field is valid.",
-               has_symbols, 4, 5);
-    check_flag!(doc = "If true, then the `mmap_addr` and `mmap_length` fields are valid.",
-               has_memory_map, 6);
-    check_flag!(doc = "If true, then the `drives_addr` and `drives_length` fields are valid.",
-               has_drives, 7);
-    check_flag!(doc = "If true, then the `config_table` field is valid.",
-               has_config_table, 8);
-    check_flag!(doc = "If true, then the `boot_loader_name` field is valid.",
-               has_boot_loader_name, 9);
-    check_flag!(doc = "If true, then the `apm_table` field is valid.",
-               has_apm_table, 10);
-    check_flag!(doc = "If true, then the `vbe_*` fields are valid.",
-               has_vbe, 11);
+    check_flag!(
+        doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
+        has_memory_bounds,
+        0
+    );
+    check_flag!(
+        doc = "If true, then the `boot_device` field is valid.",
+        has_boot_device,
+        1
+    );
+    check_flag!(
+        doc = "If true, then the `cmdline` field is valid.",
+        has_cmdline,
+        2
+    );
+    check_flag!(
+        doc = "If true, then the `mods_addr` and `mods_count` fields are valid.",
+        has_modules,
+        3
+    );
+    check_flag!(
+        doc = "If true, then the `syms` field is valid.",
+        _has_symbols,
+        4,
+        5
+    );
+    check_flag!(
+        doc = "If true, then the `mmap_addr` and `mmap_length` fields are valid.",
+        has_memory_map,
+        6
+    );
+    check_flag!(
+        doc = "If true, then the `drives_addr` and `drives_length` fields are valid.",
+        _has_drives,
+        7
+    );
+    check_flag!(
+        doc = "If true, then the `config_table` field is valid.",
+        _has_config_table,
+        8
+    );
+    check_flag!(
+        doc = "If true, then the `boot_loader_name` field is valid.",
+        _has_boot_loader_name,
+        9
+    );
+    check_flag!(
+        doc = "If true, then the `apm_table` field is valid.",
+        _has_apm_table,
+        10
+    );
+    check_flag!(
+        doc = "If true, then the `vbe_*` fields are valid.",
+        _has_vbe,
+        11
+    );
 
     /// Indicate the amount of lower memory in kilobytes.
     ///
@@ -206,7 +235,7 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     pub fn lower_memory_bound(&self) -> Option<u32> {
         match self.has_memory_bounds() {
             true => Some(self.header.mem_lower),
-            false => None
+            false => None,
         }
     }
 
@@ -219,7 +248,7 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     pub fn upper_memory_bound(&self) -> Option<u32> {
         match self.has_memory_bounds() {
             true => Some(self.header.mem_upper),
-            false => None
+            false => None,
         }
     }
 
@@ -232,16 +261,14 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     pub fn boot_device(&self) -> Option<BootDevice> {
         match self.has_boot_device() {
             true => Some(self.header.boot_device.clone()),
-            false => None
+            false => None,
         }
     }
 
     /// Command line to be passed to the kernel.
     pub fn command_line(&self) -> Option<&'a str> {
         if self.has_cmdline() {
-            unsafe {
-                self.convert_c_string(self.header.cmdline as PAddr)
-            }
+            unsafe { self.convert_c_string(self.header.cmdline as PAddr) }
         } else {
             None
         }
@@ -251,14 +278,17 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     pub fn modules(&'a self) -> Option<ModuleIter<F>> {
         if self.has_modules() {
             unsafe {
-                (self.paddr_to_slice)(self.header.mods_addr as PAddr,
-                                      self.header.mods_count as usize *
-                                      size_of::<MBModule>()).map(|slice| {
-                                          let ptr = transmute(slice.as_ptr());
-                                          let mods = slice::from_raw_parts(ptr,
-                                                                           self.header.mods_count as usize);
-                                          ModuleIter { mb: &self, mods: mods}
-                                      })
+                (self.paddr_to_slice)(
+                    self.header.mods_addr as PAddr,
+                    self.header.mods_count as usize * size_of::<MBModule>(),
+                ).map(|slice| {
+                    let ptr = transmute(slice.as_ptr());
+                    let mods = slice::from_raw_parts(ptr, self.header.mods_count as usize);
+                    ModuleIter {
+                        mb: &self,
+                        mods: mods,
+                    }
+                })
             }
         } else {
             None
@@ -271,13 +301,16 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
             true => {
                 let start = self.header.mmap_addr;
                 let end = self.header.mmap_addr + self.header.mmap_length;
-                Some(MemoryMapIter { current: start, end: end, mb: self })
+                Some(MemoryMapIter {
+                    current: start,
+                    end: end,
+                    mb: self,
+                })
             }
-            false => None
+            false => None,
         }
     }
 }
-
 
 /// The ‘boot_device’ field.
 ///
@@ -303,11 +336,10 @@ pub struct BootDevice {
     /// Specifies a sub-partition in the top-level partition
     pub partition2: u8,
     /// Specifies a sub-partition in the 2nd-level partition
-    pub partition3: u8
+    pub partition3: u8,
 }
 
 impl BootDevice {
-
     /// Is partition1 a valid partition?
     pub fn partition1_is_valid(&self) -> bool {
         self.partition1 != 0xff
@@ -328,25 +360,35 @@ impl BootDevice {
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryType {
     Available = 1, // memory, available to OS
-    Reserved  = 2, // reserved, not available (rom, mem map dev)
-    ACPI      = 3, // ACPI Reclaim Memory
-    NVS       = 4, // ACPI NVS Memory
+    Reserved = 2,  // reserved, not available (rom, mem map dev)
+    ACPI = 3,      // ACPI Reclaim Memory
+    NVS = 4,       // ACPI NVS Memory
 }
 
 /// Multiboot format of the MMAP buffer.
 ///
 /// Note that size is defined to be at -4 bytes in multiboot.
-#[derive(Debug)]
 #[repr(C, packed)]
 pub struct MemoryEntry {
     size: u32,
     base_addr: u64,
     length: u64,
-    mtype: u32
+    mtype: u32,
+}
+
+impl Debug for MemoryEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            write!(
+                f,
+                "MemoryEntry {{ size: {}, base_addr: {}, length: {}, mtype: {} }}",
+                self.size, self.base_addr, self.length, self.mtype
+            )
+        }
+    }
 }
 
 impl MemoryEntry {
-
     /// Get base of memory region.
     pub fn base_address(&self) -> PAddr {
         self.base_addr as PAddr
@@ -363,7 +405,7 @@ impl MemoryEntry {
             1 => MemoryType::Available,
             3 => MemoryType::ACPI,
             4 => MemoryType::NVS,
-            _ => MemoryType::Reserved
+            _ => MemoryType::Reserved,
         }
     }
 }
@@ -382,10 +424,12 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Iterator for MemoryMapIter<'a,
     fn next(&mut self) -> Option<&'a MemoryEntry> {
         if self.current < self.end {
             unsafe {
-                self.mb.cast(self.current as PAddr).map(|region: &'a MemoryEntry| {
-                    self.current += region.size + 4;
-                    region
-                })
+                self.mb
+                    .cast(self.current as PAddr)
+                    .map(|region: &'a MemoryEntry| {
+                        self.current += region.size + 4;
+                        region
+                    })
             }
         } else {
             None
@@ -394,7 +438,6 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Iterator for MemoryMapIter<'a,
 }
 
 /// Multiboot format to information about module
-#[derive(Debug)]
 #[repr(C, packed)]
 struct MBModule {
     /// Start address of module in memory.
@@ -415,7 +458,19 @@ struct MBModule {
     string: u32,
 
     /// Must be zero.
-    reserved: u32
+    reserved: u32,
+}
+
+impl Debug for MBModule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            write!(
+                f,
+                "MBModule {{ start: {}, end: {}, string: {}, reserved: {} }}",
+                self.start, self.end, self.string, self.reserved
+            )
+        }
+    }
 }
 
 /// Information about a module in multiboot.
@@ -426,12 +481,16 @@ pub struct Module<'a> {
     /// End address of module in physic memory.
     pub end: PAddr,
     /// Name of the module.
-    pub string: Option<&'a str>
+    pub string: Option<&'a str>,
 }
 
 impl<'a> Module<'a> {
     fn new(start: PAddr, end: PAddr, name: Option<&'a str>) -> Module {
-        Module{start: start, end: end, string: name}
+        Module {
+            start: start,
+            end: end,
+            string: name,
+        }
     }
 }
 
@@ -449,20 +508,33 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Iterator for ModuleIter<'a, F>
         self.mods.split_first().map(|(first, rest)| {
             self.mods = rest;
             unsafe {
-                Module::new(first.start as PAddr,
-                            first.end as PAddr,
-                            self.mb.convert_c_string(first.string as PAddr))
+                Module::new(
+                    first.start as PAddr,
+                    first.end as PAddr,
+                    self.mb.convert_c_string(first.string as PAddr),
+                )
             }
         })
     }
 }
 
 /// Multiboot format for ELF Symbols
-#[derive(Debug)]
 #[repr(C, packed)]
 struct ElfSymbols {
     num: u32,
     size: u32,
     addr: u32,
     shndx: u32,
+}
+
+impl Debug for ElfSymbols {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            write!(
+                f,
+                "ElfSymbols {{ num: {}, size: {}, addr: {}, shndx: {} }}",
+                self.num, self.size, self.addr, self.shndx
+            )
+        }
+    }
 }
