@@ -282,7 +282,8 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
                 (self.paddr_to_slice)(
                     self.header.mods_addr as PAddr,
                     self.header.mods_count as usize * size_of::<MBModule>(),
-                ).map(|slice| {
+                )
+                .map(|slice| {
                     let ptr = transmute(slice.as_ptr());
                     let mods = slice::from_raw_parts(ptr, self.header.mods_count as usize);
                     ModuleIter {
