@@ -22,9 +22,9 @@ pub type PAddr = u64;
 
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
-pub struct Multiboot<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> {
+pub struct Multiboot<'a> {
     header: &'a MultibootInfo,
-    paddr_to_slice: F,
+    paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
 }
 
 /// Representation of Multiboot header according to specification.
@@ -124,7 +124,7 @@ macro_rules! check_flag {
 }
 
 /// Multiboot structure.
-impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
+impl<'a> Multiboot<'a> {
     /// Initializes the multiboot structure.
     ///
     /// # Arguments
@@ -140,7 +140,10 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     /// # Safety
     /// The user must ensure that mboot_ptr holds the physical address of a valid
     /// Multiboot1 structure and that paddr_to_slice provides correct translations.
-    pub unsafe fn new(mboot_ptr: PAddr, paddr_to_slice: F) -> Option<Multiboot<'a, F>> {
+    pub unsafe fn new(
+        mboot_ptr: PAddr,
+        paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
+    ) -> Option<Multiboot<'a>> {
         paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(|inner| {
             let info = transmute(inner.as_ptr());
             Multiboot {
@@ -276,7 +279,7 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     }
 
     /// Discover all additional modules in multiboot.
-    pub fn modules(&'a self) -> Option<ModuleIter<F>> {
+    pub fn modules(&'a self) -> Option<ModuleIter> {
         if self.has_modules() {
             unsafe {
                 (self.paddr_to_slice)(
@@ -298,7 +301,7 @@ impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Multiboot<'a, F> {
     }
 
     /// Discover all memory regions in the multiboot memory map.
-    pub fn memory_regions(&'a self) -> Option<MemoryMapIter<F>> {
+    pub fn memory_regions(&'a self) -> Option<MemoryMapIter> {
         match self.has_memory_map() {
             true => {
                 let start = self.header.mmap_addr;
@@ -413,13 +416,13 @@ impl MemoryEntry {
 }
 
 /// Used to iterate over all memory regions provided by multiboot.
-pub struct MemoryMapIter<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]> + 'a> {
-    mb: &'a Multiboot<'a, F>,
+pub struct MemoryMapIter<'a> {
+    mb: &'a Multiboot<'a>,
     current: u32,
     end: u32,
 }
 
-impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Iterator for MemoryMapIter<'a, F> {
+impl<'a> Iterator for MemoryMapIter<'a> {
     type Item = &'a MemoryEntry;
 
     #[inline]
@@ -497,12 +500,12 @@ impl<'a> Module<'a> {
 }
 
 /// Used to iterate over all modules in multiboot.
-pub struct ModuleIter<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]> + 'a> {
-    mb: &'a Multiboot<'a, F>,
+pub struct ModuleIter<'a> {
+    mb: &'a Multiboot<'a>,
     mods: &'a [MBModule],
 }
 
-impl<'a, F: Fn(PAddr, usize) -> Option<&'a [u8]>> Iterator for ModuleIter<'a, F> {
+impl<'a> Iterator for ModuleIter<'a> {
     type Item = Module<'a>;
 
     #[inline]
