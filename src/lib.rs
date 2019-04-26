@@ -9,11 +9,18 @@
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
 
+use core::cmp;
 use core::fmt;
 use core::fmt::Debug;
 use core::mem::{size_of, transmute};
 use core::slice;
 use core::str;
+
+macro_rules! round_up {
+    ($num:expr, $s:expr) => {
+        (($num + $s - 1) / $s) * $s
+    };
+}
 
 /// Value found in %eax after multiboot jumps to our entry point.
 pub const SIGNATURE_EAX: u32 = 0x2BADB002;
@@ -82,13 +89,13 @@ struct MultibootInfo {
     mods_count: u32,
     mods_addr: u32,
 
-    _elf_symbols: ElfSymbols,
+    elf_symbols: ElfSymbols,
 
     mmap_length: u32,
     mmap_addr: u32,
 
-    _drives_length: u32,
-    _drives_addr: u32,
+    drives_length: u32,
+    drives_addr: u32,
 
     _config_table: u32,
 
@@ -314,6 +321,27 @@ impl<'a> Multiboot<'a> {
             }
             false => None,
         }
+    }
+
+    /// Return end address of multiboot image.
+    ///
+    /// This function can be used to figure out a (hopefully) safe offset
+    /// in the first region of memory to start using as free memory.
+    pub fn find_highest_address(&self) -> PAddr {
+        let end = 0;
+        let end = cmp::max(
+            self.header.cmdline as u64 + self.command_line().map_or(0, |f| f.len()) as u64,
+            end,
+        )
+        .max(
+            (self.header.elf_symbols.addr
+                + self.header.elf_symbols.num * self.header.elf_symbols.size) as u64,
+        )
+        .max((self.header.mmap_addr + self.header.mmap_length) as u64)
+        .max((self.header.drives_addr + self.header.drives_length) as u64)
+        .max(self.modules().unwrap().map(|m| m.end).max().unwrap_or(end));
+
+        round_up!(end, 4096)
     }
 }
 
