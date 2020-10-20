@@ -1,12 +1,12 @@
 //! This module contains the pieces for parsing Multiboot headers.
 
 use core::convert::TryInto;
+use core::fmt;
 
 pub const MULTIBOOT_HEADER_MAGIC: u32 = 0x1BADB002;
 
 /// Multiboot struct bootloaders mainly interact with
-// TODO: the derived Debug implementation is not good
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct Header {
     header: MultibootHeader,
     /// the index at which the header starts
@@ -124,6 +124,17 @@ impl Header {
     }
 }
 
+impl fmt::Debug for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Header")
+            .field("wants_modules_page_aligned", &self.wants_modules_page_aligned())
+            .field("wants_memory_information", &self.wants_memory_information())
+            .field("addresses", &self.get_addresses())
+            .field("video_mode", &self.get_preferred_video_mode())
+            .finish()
+    }
+}
+
 /// Addresses specified in the Multiboot header
 #[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
@@ -146,7 +157,7 @@ impl MultibootAddresses {
 }
 
 /// Preferred video mode specified in the Multiboot header
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct MultibootVideoMode {
     mode_type: u32,
@@ -173,6 +184,17 @@ impl MultibootVideoMode {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Debug for MultibootVideoMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MultibootVideoMode")
+            .field("mode_type", &self.mode_type())
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("depth", &self.depth())
+            .finish()
     }
 }
 
