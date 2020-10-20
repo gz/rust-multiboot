@@ -60,6 +60,7 @@ pub struct Multiboot<'a> {
 ///</rawtext>
 ///
 #[repr(C, packed)]
+#[derive(Default)]
 struct MultibootInfo {
     flags: u32,
 
@@ -354,6 +355,17 @@ impl BootDevice {
     }
 }
 
+impl Default for BootDevice {
+    fn default() -> Self {
+        Self {
+            drive: 0xff,
+            partition1: 0xff,
+            partition2: 0xff,
+            partition3: 0xff,
+        }
+    }
+}
+
 /// Types that define if the memory is usable or not.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryType {
@@ -518,6 +530,7 @@ impl<'a> Iterator for ModuleIter<'a> {
 
 /// Multiboot format for ELF Symbols
 #[repr(C, packed)]
+#[derive(Default)]
 struct ElfSymbols {
     num: u32,
     size: u32,
