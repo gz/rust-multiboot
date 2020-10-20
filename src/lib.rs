@@ -45,3 +45,9 @@ pub use information::MemoryEntry;
 pub use information::MemoryMapIter;
 pub use information::Module;
 pub use information::ModuleIter;
+
+mod header;
+pub use header::Header;
+pub use header::MultibootAddresses;
+pub use header::MultibootVideoMode;
+pub use header::VideoModeType;
