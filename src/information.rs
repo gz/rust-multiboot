@@ -61,7 +61,7 @@ pub struct Multiboot<'a> {
 ///
 #[repr(C, packed)]
 #[derive(Default)]
-struct MultibootInfo {
+pub struct MultibootInfo {
     flags: u32,
 
     mem_lower: u32,
@@ -124,6 +124,14 @@ impl<'a> Multiboot<'a> {
                 paddr_to_slice: paddr_to_slice,
             }
         })
+    }
+    
+    /// Creates from a reference
+    pub fn from_ref(info: &'a MultibootInfo) -> Self {
+        Self {
+            header: info,
+            paddr_to_slice: |_, _| None,
+        }
     }
 
     unsafe fn cast<T>(&self, addr: PAddr) -> Option<&T> {

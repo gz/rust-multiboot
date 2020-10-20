@@ -39,6 +39,7 @@ mod information;
 pub use information::SIGNATURE_EAX;
 pub use information::PAddr;
 pub use information::Multiboot;
+pub use information::MultibootInfo;
 pub use information::BootDevice;
 pub use information::MemoryType;
 pub use information::MemoryEntry;
