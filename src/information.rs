@@ -92,6 +92,7 @@ pub struct MultibootInfo {
     _vbe_control_info: u32,
     _vbe_mode_info: u32,
     _vbe_mode: u16,
+    _vbe_interface_seg: u16,
     _vbe_interface_off: u16,
     _vbe_interface_len: u16,
 }
