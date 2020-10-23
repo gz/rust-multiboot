@@ -33,7 +33,7 @@ pub struct Header {
 /// 44       | depth             |    (present if flags[2] is set)
 ///          +-------------------+
 /// </rawtext>
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 struct MultibootHeader {
     magic: u32,
@@ -137,7 +137,7 @@ impl fmt::Debug for Header {
 
 /// Addresses specified in the Multiboot header
 #[derive(Debug, Copy, Clone)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct MultibootAddresses {
     pub header_address: u32,
     pub load_address: u32,
@@ -158,7 +158,7 @@ impl MultibootAddresses {
 
 /// Preferred video mode specified in the Multiboot header
 #[derive(Copy, Clone)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct MultibootVideoMode {
     mode_type: u32,
     pub width: u32,

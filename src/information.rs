@@ -59,7 +59,7 @@ pub struct Multiboot<'a> {
 ///         +-------------------+
 ///</rawtext>
 ///
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Default)]
 pub struct MultibootInfo {
     flags: u32,
@@ -332,7 +332,7 @@ impl<'a> Multiboot<'a> {
 /// within that DOS partition, and ‘part3’ is 0xFF.
 ///
 #[derive(Debug, Clone)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct BootDevice {
     /// Contains the bios drive number as understood by
     /// the bios INT 0x13 low-level disk interface: e.g. 0x00 for the
@@ -456,7 +456,7 @@ impl<'a> Iterator for MemoryMapIter<'a> {
 }
 
 /// Multiboot format to information about module
-#[repr(C, packed)]
+#[repr(C)]
 struct MBModule {
     /// Start address of module in memory.
     start: u32,
@@ -481,13 +481,11 @@ struct MBModule {
 
 impl Debug for MBModule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            write!(
-                f,
-                "MBModule {{ start: {}, end: {}, string: {}, reserved: {} }}",
-                self.start, self.end, self.string, self.reserved
-            )
-        }
+        write!(
+            f,
+            "MBModule {{ start: {}, end: {}, string: {}, reserved: {} }}",
+            self.start, self.end, self.string, self.reserved
+        )
     }
 }
 
@@ -537,7 +535,7 @@ impl<'a> Iterator for ModuleIter<'a> {
 }
 
 /// Multiboot format for ELF Symbols
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Default)]
 struct ElfSymbols {
     num: u32,
@@ -548,12 +546,10 @@ struct ElfSymbols {
 
 impl Debug for ElfSymbols {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            write!(
-                f,
-                "ElfSymbols {{ num: {}, size: {}, addr: {}, shndx: {} }}",
-                self.num, self.size, self.addr, self.shndx
-            )
-        }
+        write!(
+            f,
+            "ElfSymbols {{ num: {}, size: {}, addr: {}, shndx: {} }}",
+            self.num, self.size, self.addr, self.shndx
+        )
     }
 }
