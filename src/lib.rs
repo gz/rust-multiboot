@@ -15,12 +15,24 @@ macro_rules! round_up {
     };
 }
 
-macro_rules! check_flag {
+macro_rules! flag {
     ($doc:meta, $fun:ident, $bit:expr) => (
         #[$doc]
         fn $fun(&self) -> bool {
             //assert!($bit <= 31);
             (self.header.flags & (1 << $bit)) > 0
+        }
+        
+        paste::paste! {
+            #[$doc]
+            fn [< set_ $fun >] (&mut self, flag: bool) {
+                //assert!($bit <= 31);
+                self.header.flags = if flag {
+                    self.header.flags | (1 << $bit)
+                } else {
+                    self.header.flags & !(1 << $bit)
+                };
+            }
         }
     );
 

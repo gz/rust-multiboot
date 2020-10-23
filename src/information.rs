@@ -157,60 +157,60 @@ impl<'a> Multiboot<'a> {
         (self.paddr_to_slice)(string, len).map(|slice| str::from_utf8_unchecked(slice))
     }
 
-    check_flag!(
+    flag!(
         doc = "If true, then the `mem_upper` and `mem_lower` fields are valid.",
         has_memory_bounds,
         0
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `boot_device` field is valid.",
         has_boot_device,
         1
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `cmdline` field is valid.",
         has_cmdline,
         2
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `mods_addr` and `mods_count` fields are valid.",
         has_modules,
         3
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `syms` field is valid.",
         _has_symbols,
         4,
         5
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `mmap_addr` and `mmap_length` fields are valid.",
         has_memory_map,
         6
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `drives_addr` and `drives_length` fields are valid.",
-        _has_drives,
+        has_drives,
         7
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `config_table` field is valid.",
-        _has_config_table,
+        has_config_table,
         8
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `boot_loader_name` field is valid.",
-        _has_boot_loader_name,
+        has_boot_loader_name,
         9
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `apm_table` field is valid.",
-        _has_apm_table,
+        has_apm_table,
         10
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `vbe_*` fields are valid.",
-        _has_vbe,
+        has_vbe,
         11
     );
 

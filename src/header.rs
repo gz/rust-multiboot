@@ -79,22 +79,22 @@ impl Header {
         Some((header, magic_index as u32))
     }
     
-    check_flag!(
+    flag!(
         doc = "If true, then the modules have to be page aligned.",
         wants_modules_page_aligned,
         0
     );
-    check_flag!(
+    flag!(
         doc = "If true, memory information must be passed.",
         wants_memory_information,
         1
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `mode_type`, `width`, `height` and `depth` fields are valid and video information has to be passed.",
         has_video_mode,
         2
     );
-    check_flag!(
+    flag!(
         doc = "If true, then the `header_addr`, `load_addr`, `load_end_addr`, `bss_end_addr` and `entry_addr` fields are valid.",
         has_multiboot_addresses,
         16

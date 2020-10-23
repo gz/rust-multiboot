@@ -12,6 +12,9 @@ readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]
 license = "MIT"
 
+[dependencies]
+paste = "1.0"
+
 [[test]]
 name = "mbtest"
 harness = false
