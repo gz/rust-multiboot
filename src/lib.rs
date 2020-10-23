@@ -58,6 +58,9 @@ pub use information::MemoryEntry;
 pub use information::MemoryMapIter;
 pub use information::Module;
 pub use information::ModuleIter;
+pub use information::FramebufferTable;
+pub use information::ColorInfoType;
+pub use information::ColorInfoRgb;
 
 mod header;
 pub use header::Header;

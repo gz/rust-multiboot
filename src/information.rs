@@ -57,6 +57,14 @@ pub struct Multiboot<'a> {
 /// 84      | vbe_interface_off |
 /// 86      | vbe_interface_len |
 ///         +-------------------+
+/// 88      | framebuffer_addr  |    (present if flags[12] is set)
+/// 96      | framebuffer_pitch |
+/// 100     | framebuffer_width |
+/// 104     | framebuffer_height|
+/// 108     | framebuffer_bpp   |
+/// 109     | framebuffer_type  |
+/// 110-115 | color_info        |
+///         +-------------------+
 ///</rawtext>
 ///
 #[repr(C)]
@@ -95,6 +103,8 @@ pub struct MultibootInfo {
     _vbe_interface_seg: u16,
     _vbe_interface_off: u16,
     _vbe_interface_len: u16,
+    
+    framebuffer_table: FramebufferTable,
 }
 
 /// Multiboot structure.
@@ -213,6 +223,11 @@ impl<'a> Multiboot<'a> {
         has_vbe,
         11
     );
+    flag!(
+        doc = "If true, then the framebuffer table is valid.",
+        has_framebuffer_table,
+        12
+    );
 
     /// Indicate the amount of lower memory in kilobytes.
     ///
@@ -317,6 +332,24 @@ impl<'a> Multiboot<'a> {
         .max(self.modules().unwrap().map(|m| m.end).max().unwrap_or(end));
 
         round_up!(end, 4096)
+    }
+    
+    /// Return the framebuffer table, if it exists.
+    pub fn framebuffer_table(&self) -> Option<&FramebufferTable> {
+        if self.has_framebuffer_table() {
+            Some(&self.header.framebuffer_table)
+        } else {
+            None
+        }
+    }
+    
+    /// Set the framebuffer table, if it exists.
+    pub fn set_framebuffer_table(&mut self, table: Option<FramebufferTable>) {
+        self.set_has_framebuffer_table(table.is_some());
+        self.header.framebuffer_table = match table {
+            Some(t) => t,
+            None => FramebufferTable::default(),
+        };
     }
 }
 
@@ -553,4 +586,125 @@ impl Debug for ElfSymbols {
             self.num, self.size, self.addr, self.shndx
         )
     }
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct FramebufferTable {
+    pub addr: u64,
+    pub pitch: u32,
+    pub width: u32,
+    pub height: u32,
+    pub bpp: u8,
+    ty: u8,
+    color_info: ColorInfo,
+}
+
+impl fmt::Debug for FramebufferTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FramebufferTable")
+            .field("addr", &self.addr)
+            .field("pitch", &self.pitch)
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("bpp", &self.bpp)
+            .field("color_info", &self.color_info())
+            .finish()
+    }
+}
+
+impl FramebufferTable {
+    /// Create this table from a color info.
+    pub fn new(
+        address: u64, pitch: u32, width: u32, height: u32, bpp: u8, color_info_type: ColorInfoType
+    ) -> Self {
+        let (ty, color_info) = match color_info_type {
+            ColorInfoType::Palette(palette) => (0, ColorInfo { palette }),
+            ColorInfoType::Rgb(rgb) => (1, ColorInfo { rgb }),
+            ColorInfoType::Text => (2, ColorInfo::default()),
+        };
+        Self {
+            addr: address,
+            pitch,
+            width,
+            height,
+            bpp,
+            ty,
+            color_info,
+        }
+    }
+    
+    /// Get the color info from this table.
+    pub fn color_info(&self) -> Option<ColorInfoType> {
+        unsafe {
+            match self.ty {
+                0 => Some(ColorInfoType::Palette(self.color_info.palette)),
+                1 => Some(ColorInfoType::Rgb(self.color_info.rgb)),
+                2 => Some(ColorInfoType::Text),
+                _ => None,
+            }
+        }
+    }
+}
+
+/// Safe wrapper for `ColorInfo`
+#[derive(Debug)]
+pub enum ColorInfoType {
+    Palette(ColorInfoPalette),
+    Rgb(ColorInfoRgb),
+    Text,
+}
+
+/// Multiboot format for the frambuffer color info
+///
+/// According to the spec, if type == 0, it's indexed color and
+///<rawtext>
+///         +----------------------------------+
+/// 110     | framebuffer_palette_addr         |
+/// 114     | framebuffer_palette_num_colors   |
+///         +----------------------------------+
+///</rawtext>
+/// The address points to an array of `ColorDescriptor`s.
+/// If type == 1, it's RGB and
+///<rawtext>
+///        +----------------------------------+
+///110     | framebuffer_red_field_position   |
+///111     | framebuffer_red_mask_size        |
+///112     | framebuffer_green_field_position |
+///113     | framebuffer_green_mask_size      |
+///114     | framebuffer_blue_field_position  |
+///115     | framebuffer_blue_mask_size       |
+///        +----------------------------------+
+///</rawtext>
+/// (If type == 2, it's just text.)
+#[repr(C)]
+union ColorInfo {
+    palette: ColorInfoPalette,
+    rgb: ColorInfoRgb,
+    _union_align: [u32; 2usize],
+}
+
+// default type is 0, so indexed color
+impl Default for ColorInfo {
+    fn default() -> Self {
+        Self { palette: ColorInfoPalette { palette_addr: 0, palette_num_colors: 0 } }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ColorInfoPalette {
+    palette_addr: u32,
+    palette_num_colors: u16,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ColorInfoRgb {
+    pub red_field_position: u8,
+    pub red_mask_size: u8,
+    pub green_field_position: u8,
+    pub green_mask_size: u8,
+    pub blue_field_position: u8,
+    pub blue_mask_size: u8,
 }
