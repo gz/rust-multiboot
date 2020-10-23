@@ -15,7 +15,7 @@ pub type PAddr = u64;
 /// Multiboot struct clients mainly interact with
 /// To create this use Multiboot::new()
 pub struct Multiboot<'a> {
-    header: &'a MultibootInfo,
+    header: &'a mut MultibootInfo,
     paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
 }
 
@@ -128,7 +128,7 @@ impl<'a> Multiboot<'a> {
     }
     
     /// Creates from a reference
-    pub fn from_ref(info: &'a MultibootInfo) -> Self {
+    pub fn from_ref(info: &'a mut MultibootInfo) -> Self {
         Self {
             header: info,
             paddr_to_slice: |_, _| None,
