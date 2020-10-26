@@ -1,5 +1,6 @@
 //! This modules contains the pieces for parsing and creating Multiboot information structures.
 
+use core::convert::TryInto;
 use core::cmp;
 use core::fmt;
 use core::fmt::Debug;
@@ -17,6 +18,7 @@ pub type PAddr = u64;
 pub struct Multiboot<'a> {
     header: &'a mut MultibootInfo,
     paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
+    alloc_func: unsafe fn(usize) -> *mut u8,
 }
 
 /// Representation of Multiboot Information according to specification.
@@ -133,15 +135,17 @@ impl<'a> Multiboot<'a> {
             Multiboot {
                 header: info,
                 paddr_to_slice: paddr_to_slice,
+                alloc_func: |_| core::ptr::null_mut(),
             }
         })
     }
     
     /// Creates from a reference
-    pub fn from_ref(info: &'a mut MultibootInfo) -> Self {
+    pub fn from_ref(info: &'a mut MultibootInfo, alloc_func: unsafe fn(usize) -> *mut u8) -> Self {
         Self {
             header: info,
             paddr_to_slice: |_, _| None,
+            alloc_func,
         }
     }
 
@@ -165,6 +169,26 @@ impl<'a> Multiboot<'a> {
             len += 1;
         }
         (self.paddr_to_slice)(string, len).map(|slice| str::from_utf8_unchecked(slice))
+    }
+    
+    /// Convert a &str into a u8 slice and from there into a C string.
+    ///
+    /// This unsafe block requires the possibility to allocate memory
+    /// (and assumes that this memory can be addresses using an u32).
+    unsafe fn convert_to_c_string(&self, string: Option<&str>) -> u32 {
+        let p = match string {
+            Some(s) => {
+                let bytes = s.bytes();
+                let len = bytes.len();
+                let ptr = (self.alloc_func)(len + 1);
+                for (idx, byte) in bytes.chain(core::iter::once(0)).enumerate() {
+                    *(ptr.offset(idx.try_into().unwrap())) = byte;
+                }
+                ptr
+            },
+            None => core::ptr::null_mut(),
+        };
+        p as u32
     }
 
     flag!(
@@ -266,13 +290,19 @@ impl<'a> Multiboot<'a> {
         }
     }
 
-    /// Command line to be passed to the kernel.
+    /// Command line passed to the kernel.
     pub fn command_line(&self) -> Option<&'a str> {
         if self.has_cmdline() {
             unsafe { self.convert_c_string(self.header.cmdline as PAddr) }
         } else {
             None
         }
+    }
+    
+    /// Command line to be passed to the kernel.
+    pub fn set_command_line(&mut self, cmdline: Option<&str>) {
+        self.set_has_cmdline(cmdline.is_some());
+        self.header.cmdline = unsafe { self.convert_to_c_string(cmdline) };
     }
 
     /// Discover all additional modules in multiboot.
