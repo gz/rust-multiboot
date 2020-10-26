@@ -326,6 +326,33 @@ impl<'a> Multiboot<'a> {
             None
         }
     }
+    
+    /// Publish modules to the kernel.
+    ///
+    /// This needs to allocate memory for the array.
+    pub fn set_modules(&mut self, modules: &[Module]) {
+        if !self.has_modules() {
+            self.header.mods_count = 0;
+            self.header.mods_addr = 0;
+            self.set_has_modules(true);
+        }
+        let len = modules.len();
+        self.header.mods_count = len.try_into().unwrap();
+        self.header.mods_addr = unsafe {
+            let mods_ptr = (self.alloc_func)(len * core::mem::size_of::<MBModule>())
+            .cast::<MBModule>();
+            for (mod_ptr, module) in (0..len)
+            .map(|i| (mods_ptr.offset(i.try_into().unwrap()), &modules[i])) {
+                *mod_ptr = MBModule {
+                    start: module.start.try_into().unwrap(),
+                    end: module.end.try_into().unwrap(),
+                    string: self.convert_to_c_string(module.string),
+                    reserved: 0,
+                }
+            }
+            mods_ptr as u32
+        };
+    }
 
     /// Discover all memory regions in the multiboot memory map.
     pub fn memory_regions(&'a self) -> Option<MemoryMapIter> {
@@ -565,7 +592,7 @@ pub struct Module<'a> {
 }
 
 impl<'a> Module<'a> {
-    fn new(start: PAddr, end: PAddr, name: Option<&'a str>) -> Module {
+    pub fn new(start: PAddr, end: PAddr, name: Option<&'a str>) -> Module {
         Module {
             start: start,
             end: end,
