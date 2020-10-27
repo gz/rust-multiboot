@@ -386,6 +386,19 @@ impl<'a> Multiboot<'a> {
             false => None,
         }
     }
+    
+    /// Publish the memory regions to the kernel.
+    ///
+    /// The address of the passed slice is being passed to the kernel.
+    pub fn set_memory_regions(&mut self, regions: Option<&'static mut [MemoryEntry]>) {
+        self.set_has_memory_map(regions.is_some());
+        if let Some(r) = regions {
+            self.header.mmap_addr = r.as_mut_ptr() as u32;
+            self.header.mmap_length = (
+                r.len() * core::mem::size_of::<MemoryEntry>()
+            ).try_into().unwrap();
+        }
+    }
 
     /// Return end address of multiboot image.
     ///
@@ -489,11 +502,13 @@ pub enum MemoryType {
     Reserved = 2,  // reserved, not available (rom, mem map dev)
     ACPI = 3,      // ACPI Reclaim Memory
     NVS = 4,       // ACPI NVS Memory
+    Defect = 5,    // defective RAM modules
 }
 
 /// Multiboot format of the MMAP buffer.
 ///
 /// Note that size is defined to be at -4 bytes in multiboot.
+#[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct MemoryEntry {
     size: u32,
@@ -514,7 +529,26 @@ impl Debug for MemoryEntry {
     }
 }
 
+impl Default for MemoryEntry {
+    /// Get the "default" memory entry. (It's 0 bytes and reserved.)
+    fn default() -> Self {
+        Self::new(0, 0, MemoryType::Reserved)
+    }
+}
+
 impl MemoryEntry {
+    /// Create a new entry from the given data.
+    ///
+    /// Note that this will always create a struct that has a size of 20 bytes.
+    pub fn new(base_addr: PAddr, length: PAddr, ty: MemoryType) -> Self {
+        // the size field itself doesn't count
+        let size = (
+            core::mem::size_of::<MemoryEntry>() - core::mem::size_of::<u32>()
+        ).try_into().unwrap();
+        assert_eq!(size, 20);
+        Self { size, base_addr, length, mtype: ty as u32 }
+    }
+    
     /// Get base of memory region.
     pub fn base_address(&self) -> PAddr {
         self.base_addr as PAddr
@@ -531,6 +565,7 @@ impl MemoryEntry {
             1 => MemoryType::Available,
             3 => MemoryType::ACPI,
             4 => MemoryType::NVS,
+            5 => MemoryType::Defect,
             _ => MemoryType::Reserved,
         }
     }
