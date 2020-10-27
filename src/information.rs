@@ -95,7 +95,7 @@ pub struct MultibootInfo {
 
     _config_table: u32,
 
-    _boot_loader_name: u32,
+    boot_loader_name: u32,
 
     _apm_table: u32,
 
@@ -304,6 +304,23 @@ impl<'a> Multiboot<'a> {
         self.set_has_cmdline(cmdline.is_some());
         self.header.cmdline = unsafe { self.convert_to_c_string(cmdline) };
     }
+    
+    /// Get the name of the bootloader.
+    pub fn boot_loader_name(&self) -> Option<&'a str> {
+        if self.has_boot_loader_name() {
+            unsafe { self.convert_c_string(self.header.boot_loader_name as PAddr) }
+        } else {
+            None
+        }
+    }
+    
+    /// Set the name of the bootloader.
+    ///
+    /// This needs to allocate memory.
+    pub fn set_boot_loader_name(&mut self, name: Option<&str>) {
+        self.set_has_boot_loader_name(name.is_some());
+        self.header.boot_loader_name = unsafe { self.convert_to_c_string(name) };
+    }
 
     /// Discover all additional modules in multiboot.
     pub fn modules(&'a self) -> Option<ModuleIter> {
@@ -375,10 +392,10 @@ impl<'a> Multiboot<'a> {
     /// This function can be used to figure out a (hopefully) safe offset
     /// in the first region of memory to start using as free memory.
     pub fn find_highest_address(&self) -> PAddr {
-        let end = 0;
         let end = cmp::max(
             self.header.cmdline as u64 + self.command_line().map_or(0, |f| f.len()) as u64,
-            end,
+            self.header.boot_loader_name as u64 + self.boot_loader_name()
+            .map_or(0, |f| f.len()) as u64,
         )
         .max(
             (self.header.elf_symbols.addr
