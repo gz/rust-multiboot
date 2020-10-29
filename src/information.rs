@@ -276,6 +276,17 @@ impl<'a> Multiboot<'a> {
             false => None,
         }
     }
+    
+    /// Sets the memory bounds (lower, upper).
+    ///
+    /// This is one call because Multiboot requires both or none to be set.
+    pub fn set_memory_bounds(&mut self, bounds: Option<(u32, u32)>) {
+        self.set_has_memory_bounds(bounds.is_some());
+        if let Some((lower, upper)) = bounds {
+            self.header.mem_lower = lower;
+            self.header.mem_upper = upper;
+        }
+    }
 
     /// Indicates which bios disk device the boot loader loaded the OS image from.
     ///
