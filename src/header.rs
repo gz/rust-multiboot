@@ -60,9 +60,7 @@ impl Header {
     /// Find the header and copy it from a given slice.
     fn find_header(buffer: &[u8]) -> Option<(MultibootHeader, u32)> {
         // the magic is 32 bit aligned and inside the first 8192 bytes
-        assert!(buffer.len() >= 8192);
-        let magic_index = match buffer[0..8192]
-        .chunks_exact(4).position(|vals|
+        let magic_index = match buffer.chunks_exact(4).take(8192 / 4).position(|vals|
             u32::from_le_bytes(vals.try_into().unwrap()) // yes, there's 4 bytes here
             == MULTIBOOT_HEADER_MAGIC
         ) {
