@@ -85,7 +85,7 @@ pub struct MultibootInfo {
     mods_count: u32,
     mods_addr: u32,
 
-    elf_symbols: ElfSymbols,
+    symbols: Symbols,
 
     mmap_length: u32,
     mmap_addr: u32,
@@ -212,9 +212,13 @@ impl<'a> Multiboot<'a> {
         3
     );
     flag!(
-        doc = "If true, then the `syms` field is valid.",
-        _has_symbols,
-        4,
+        doc = "If true, then the `syms` field is valid and contains AOut symbols.",
+        has_aout_symbols,
+        4
+    );
+    flag!(
+        doc = "If true, then the `syms` field is valid and containts ELF symbols.",
+        has_elf_symbols,
         5
     );
     flag!(
@@ -381,6 +385,41 @@ impl<'a> Multiboot<'a> {
             mods_ptr as u32
         };
     }
+    
+    /// Get the symbols.
+    pub fn symbols(&self) -> Option<SymbolType> {
+        if self.has_elf_symbols() & self.has_aout_symbols() {
+            // this is not supported
+            return None
+        }
+        if self.has_elf_symbols() {
+            return Some(SymbolType::Elf(unsafe { self.header.symbols.elf }))
+        }
+        if self.has_aout_symbols() {
+            return Some(SymbolType::AOut(unsafe { self.header.symbols.aout }))
+        }
+        None
+    }
+    
+    /// Set the symbols.
+    pub fn set_symbols(&mut self, symbols: Option<SymbolType>) {
+        match symbols {
+            None => {
+                self.set_has_aout_symbols(false);
+                self.set_has_elf_symbols(false);
+            },
+            Some(SymbolType::AOut(a)) => {
+                self.set_has_aout_symbols(true);
+                self.set_has_elf_symbols(false);
+                self.header.symbols.aout = a;
+            },
+            Some(SymbolType::Elf(e)) => {
+                self.set_has_aout_symbols(false);
+                self.set_has_elf_symbols(true);
+                self.header.symbols.elf = e;
+            }
+        }
+    }
 
     /// Discover all memory regions in the multiboot memory map.
     pub fn memory_regions(&'a self) -> Option<MemoryMapIter> {
@@ -421,10 +460,13 @@ impl<'a> Multiboot<'a> {
             self.header.boot_loader_name as u64 + self.boot_loader_name()
             .map_or(0, |f| f.len()) as u64,
         )
-        .max(
-            (self.header.elf_symbols.addr
-                + self.header.elf_symbols.num * self.header.elf_symbols.size) as u64,
-        )
+        .max(match self.symbols() {
+            Some(SymbolType::Elf(e)) => (e.addr + e.num * e.size) as u64,
+            Some(SymbolType::AOut(a)) => (
+                a.addr + a.tabsize + a.strsize + 2 * core::mem::size_of::<u32>() as u32
+            ) as u64,
+            None => 0,
+        })
         .max((self.header.mmap_addr + self.header.mmap_length) as u64)
         .max((self.header.drives_addr + self.header.drives_length) as u64)
         .max(self.modules().unwrap().map(|m| m.end).max().unwrap_or(end));
@@ -688,10 +730,50 @@ impl<'a> Iterator for ModuleIter<'a> {
     }
 }
 
+/// Multiboot format for Symbols
+#[repr(C)]
+union Symbols {
+    aout: AOutSymbols,
+    elf: ElfSymbols,
+    _bindgen_union_align: [u32; 4usize]
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum SymbolType {
+    AOut(AOutSymbols),
+    Elf(ElfSymbols),
+}
+
+impl Default for Symbols {
+    fn default() -> Self {
+        Self { elf: ElfSymbols::default() }
+    }
+}
+
+/// Multiboot format for AOut Symbols
+#[repr(C)]
+#[derive(Default, Copy, Clone)]
+pub struct AOutSymbols {
+    tabsize: u32,
+    strsize: u32,
+    addr: u32,
+    reserved: u32,
+}
+
+impl Debug for AOutSymbols {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "AOutSymbols {{ tabsize: {}, strsize: {}, addr: {} }}",
+            self.tabsize, self.strsize, self.addr
+        )
+    }
+}
+
 /// Multiboot format for ELF Symbols
 #[repr(C)]
-#[derive(Default)]
-struct ElfSymbols {
+#[derive(Default, Copy, Clone)]
+pub struct ElfSymbols {
     num: u32,
     size: u32,
     addr: u32,

@@ -35,16 +35,6 @@ macro_rules! flag {
             }
         }
     );
-
-    // syms field is valid if bit 4 or 5 is set, wtf?
-    ($doc:meta, $fun:ident, $bit1:expr, $bit2:expr) => (
-        #[$doc]
-        fn $fun(&self) -> bool {
-            //assert!($bit1 <= 31);
-            //assert!($bit2 <= 31);
-            (self.header.flags & (1 << $bit1)) > 0 || (self.header.flags & (1 << $bit2)) > 0
-        }
-    );
 }
 
 mod information;
@@ -58,6 +48,9 @@ pub use information::MemoryEntry;
 pub use information::MemoryMapIter;
 pub use information::Module;
 pub use information::ModuleIter;
+pub use information::SymbolType;
+pub use information::AOutSymbols;
+pub use information::ElfSymbols;
 pub use information::FramebufferTable;
 pub use information::ColorInfoType;
 pub use information::ColorInfoRgb;
