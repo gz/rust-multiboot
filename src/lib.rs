@@ -18,7 +18,7 @@ macro_rules! round_up {
 macro_rules! flag {
     ($doc:meta, $fun:ident, $bit:expr) => (
         #[$doc]
-        fn $fun(&self) -> bool {
+        pub fn $fun(&self) -> bool {
             //assert!($bit <= 31);
             (self.header.flags & (1 << $bit)) > 0
         }
