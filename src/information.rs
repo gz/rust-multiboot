@@ -790,6 +790,21 @@ impl Debug for ElfSymbols {
     }
 }
 
+impl ElfSymbols {
+    /// Uses a passed pointer for the symbols.
+    ///
+    /// Note that the underlying slice has to stay intact,
+    /// else the passed pointer will be invalid.
+    ///
+    /// Also, this doesn't check whether the supplied parameters are correct.
+    pub fn from_ptr(num: u32, size: u32, ptr: *const u8, shndx: u32) -> Self {
+        Self {
+            num, size, shndx,
+            addr: (ptr as usize).try_into().unwrap(),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Default)]
 pub struct FramebufferTable {
