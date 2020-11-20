@@ -53,7 +53,7 @@ pub struct Multiboot<'a, 'b> {
 }
 
 /// Representation of Multiboot Information according to specification.
-////
+///
 ///<rawtext>
 ///         +-------------------+
 /// 0       | flags             |    (required)
@@ -142,7 +142,9 @@ pub struct MultibootInfo {
 
 /// Multiboot structure.
 impl<'a, 'b> Multiboot<'a, 'b> {
-    /// Initializes the multiboot structure.
+    /// Initializes the multiboot structure from a passed address.
+    ///
+    /// This is the way to go, if you're writing a kernel.
     ///
     /// # Arguments
     ///
@@ -167,7 +169,22 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         })
     }
     
-    /// Creates from a reference
+    /// Initializes this struct from an already existing [`MultibootInfo`] reference.
+    ///
+    /// In combination with [`MultibootInfo::default`] this is useful for writing a bootloader.
+    ///
+    /// # Arguments
+    ///
+    ///  * `info` - The (mutable) reference to a [`MultibootInfo`] struct.
+    ///  * `memory_management` - Translation of the physical addresses into kernel addresses,
+    ///                          allocation and deallocation of memory.
+    ///                          See the [`MemoryManagement`] description for more details.
+    ///
+    /// # Safety
+    /// The user must ensure that the memory management can allocate memory.
+    ///
+    /// [`MultibootInfo`]: struct.MultibootInfo.html
+    /// [`MultibootInfo::default`]: struct.MultibootInfo.html#impl-Default
     pub fn from_ref(
         info: &'a mut MultibootInfo, memory_management: &'b mut dyn MemoryManagement
     ) -> Self {
@@ -398,7 +415,11 @@ impl<'a, 'b> Multiboot<'a, 'b> {
     
     /// Publish modules to the kernel.
     ///
-    /// This copies the given metadata into a newly allocated memory.
+    /// This copies the given metadata into newly allocated memory.
+    ///
+    /// Note that the addresses in each [`Module`] must be and stay valid.
+    ///
+    /// [`Module`]: struct.Module.html
     pub fn set_modules(&mut self, modules: Option<&[Module]>) {
         // free the existing modules
         if self.has_modules() {
@@ -456,6 +477,11 @@ impl<'a, 'b> Multiboot<'a, 'b> {
     }
     
     /// Set the symbols.
+    ///
+    /// Note that the address in either [`AOutSymbols`] or [`ElfSymbols`] must stay valid.
+    ///
+    /// [`AOutSymbols`]: struct.AOutSymbols.html
+    /// [`ElfSymbols`]: struct.ElfSymbols.html
     pub fn set_symbols(&mut self, symbols: Option<SymbolType>) {
         match symbols {
             None => {
@@ -609,11 +635,16 @@ impl Default for BootDevice {
 /// Types that define if the memory is usable or not.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryType {
-    Available = 1, // memory, available to OS
-    Reserved = 2,  // reserved, not available (rom, mem map dev)
-    ACPI = 3,      // ACPI Reclaim Memory
-    NVS = 4,       // ACPI NVS Memory
-    Defect = 5,    // defective RAM modules
+    /// memory, available to OS
+    Available = 1,
+    /// reserved, not available (rom, mem map dev)
+    Reserved = 2,
+    /// ACPI Reclaim Memory
+    ACPI = 3,
+    /// ACPI NVS Memory
+    NVS = 4,
+    /// defective RAM modules
+    Defect = 5,
 }
 
 /// Multiboot format of the MMAP buffer.
@@ -796,6 +827,10 @@ union Symbols {
     _bindgen_union_align: [u32; 4usize]
 }
 
+/// Safe wrapper for either [`AOutSymbols`] or [`ElfSymbols`]
+///
+/// [`AOutSymbols`]: struct.AOutSymbols.html
+/// [`ElfSymbols`]: struct.ElfSymbols.html
 #[derive(Debug, Copy, Clone)]
 pub enum SymbolType {
     AOut(AOutSymbols),
@@ -862,6 +897,7 @@ impl ElfSymbols {
     }
 }
 
+/// Contains the information about the framebuffer
 #[repr(C)]
 #[derive(Default)]
 pub struct FramebufferTable {
@@ -889,6 +925,10 @@ impl fmt::Debug for FramebufferTable {
 
 impl FramebufferTable {
     /// Create this table from a color info.
+    ///
+    /// If the type is [`ColorInfoType::Text`], `bpp` has to be 16.
+    ///
+    /// [`ColorInfoType::Text`]: enum.ColorInfoType.html#variant.Text
     pub fn new(
         addr: u64, pitch: u32, width: u32, height: u32, bpp: u8, color_info_type: ColorInfoType
     ) -> Self {
@@ -965,6 +1005,7 @@ impl Default for ColorInfo {
     }
 }
 
+/// Information for indexed color mode
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ColorInfoPalette {
@@ -972,6 +1013,7 @@ pub struct ColorInfoPalette {
     palette_num_colors: u16,
 }
 
+/// Information for direct RGB color mode
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ColorInfoRgb {

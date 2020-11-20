@@ -1,9 +1,17 @@
 //! Multiboot v1 library
 //!
+//! The main structs to interact with are [`Multiboot`] for the Multiboot information
+//! passed from the bootloader to the kernel at runtime and [`Header`] for the static
+//! information passed from the kernel to the bootloader in the kernel image.
+//!
+//!
+//!
 //! # Additional documentation
 //!   * https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
+//! [`Multiboot`]: struct.Multiboot.html
+//! [`Header`]: struct.Header.html
 
 #![no_std]
 #![crate_name = "multiboot"]

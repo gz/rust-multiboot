@@ -88,12 +88,14 @@ impl Header {
         1
     );
     flag!(
-        doc = "If true, then the `mode_type`, `width`, `height` and `depth` fields are valid and video information has to be passed.",
+        doc = "If true, then the `mode_type`, `width`, `height` and `depth` fields are valid and
+        video information has to be passed.",
         has_video_mode,
         2
     );
     flag!(
-        doc = "If true, then the `header_addr`, `load_addr`, `load_end_addr`, `bss_end_addr` and `entry_addr` fields are valid.",
+        doc = "If true, then the `header_addr`, `load_addr`, `load_end_addr`, `bss_end_addr`
+        and `entry_addr` fields are valid and must be used to load the kernel.",
         has_multiboot_addresses,
         16
     );
@@ -111,8 +113,6 @@ impl Header {
     }
     
     /// Get the preferred video mode specified in the Multiboot header.
-    ///
-    /// If this function returns `None` the binary has to be loaded as an ELF instead.
     pub fn get_preferred_video_mode(&self) -> Option<MultibootVideoMode> {
         if self.has_video_mode() {
             Some(self.header.video_mode)
@@ -134,6 +134,8 @@ impl fmt::Debug for Header {
 }
 
 /// Addresses specified in the Multiboot header
+///
+/// If present, they must be used to load the kernel (regardless, what the ELF header says).
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct MultibootAddresses {
@@ -175,8 +177,9 @@ impl MultibootVideoMode {
     }
     
     /// Get the preferred depth, if possible.
+    ///
+    /// Only pixel-based modes have a depth, text modes do not.
     pub fn depth(&self) -> Option<u32> {
-        // Only a pixel-based mode has a depth.
         if self.mode_type() == Some(VideoModeType::LinearGraphics) {
             Some(self.depth)
         } else {
