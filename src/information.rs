@@ -13,12 +13,43 @@ pub const SIGNATURE_EAX: u32 = 0x2BADB002;
 
 pub type PAddr = u64;
 
+/// Implement this trait to be able to get or set fields containing a pointer.
+///
+/// Memory translation, allocation and deallocation happens here.
+pub trait MemoryManagement {
+    /// Translates physical addr + size into a kernel accessible slice.
+    ///
+    /// The simplest paddr_to_slice function would for example be just the identity
+    /// function. But this may vary depending on how your page table layout looks like.
+    ///
+    /// If you only want to set fields, this can just always return `None`.
+    unsafe fn paddr_to_slice(&self, addr: PAddr, length: usize) -> Option<&'static [u8]>;
+    
+    /// Allocates `length` bytes.
+    ///
+    /// The returned tuple consists of the physical address (that goes into the struct)
+    /// and the slice which to use to write to.
+    ///
+    /// If you only want to read fields, this can just always return `None`.
+    unsafe fn allocate(&mut self, length: usize) -> Option<(PAddr, &mut [u8])>;
+    
+    /// Free the previously allocated memory.
+    ///
+    /// This should handle null pointers by doing nothing.
+    ///
+    /// If you only want to read fields, this can just always panic.
+    unsafe fn deallocate(&mut self, addr: PAddr);
+}
+
 /// Multiboot struct clients mainly interact with
-/// To create this use Multiboot::new()
-pub struct Multiboot<'a> {
+///
+/// To create this use [`Multiboot::from_ptr`] or [`Multiboot::from_ref`].
+///
+/// [`Multiboot::from_ptr`]: struct.Multiboot.html#method.from_ptr
+/// [`Multiboot::from_ref`]: struct.Multiboot.html#method.from_ref
+pub struct Multiboot<'a, 'b> {
     header: &'a mut MultibootInfo,
-    paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
-    alloc_func: unsafe fn(usize) -> *mut u8,
+    memory_management: &'b mut dyn MemoryManagement,
 }
 
 /// Representation of Multiboot Information according to specification.
@@ -110,47 +141,43 @@ pub struct MultibootInfo {
 }
 
 /// Multiboot structure.
-impl<'a> Multiboot<'a> {
+impl<'a, 'b> Multiboot<'a, 'b> {
     /// Initializes the multiboot structure.
     ///
     /// # Arguments
     ///
     ///  * `mboot_ptr` - The physical address of the multiboot header. On qemu for example
     ///                  this is typically at 0x9500.
-    ///  * `paddr_to_slice` - Translation of the physical addresses into kernel addresses.
-    ///
-    ///  `paddr_to_slice` translates physical addr + size into a kernel accessible slice.
-    ///  The simplest paddr_to_slice function would for example be just the identity
-    ///  function. But this may vary depending on how your page table layout looks like.
+    ///  * `memory_management` - Translation of the physical addresses into kernel addresses,
+    ///                          allocation and deallocation of memory.
+    ///                          See the [`MemoryManagement`] description for more details.
     ///
     /// # Safety
     /// The user must ensure that mboot_ptr holds the physical address of a valid
-    /// Multiboot1 structure and that paddr_to_slice provides correct translations.
-    pub unsafe fn new(
+    /// Multiboot1 structure and that memory management provides correct translations.
+    ///
+    /// [`MemoryManagement`]: trait.MemoryManagement.html
+    pub unsafe fn from_ptr(
         mboot_ptr: PAddr,
-        paddr_to_slice: fn(PAddr, usize) -> Option<&'a [u8]>,
-    ) -> Option<Multiboot<'a>> {
-        paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(|inner| {
+        memory_management: &'b mut dyn MemoryManagement,
+    ) -> Option<Multiboot<'a, 'b>> {
+        memory_management.paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(move |inner| {
             let info = transmute(inner.as_ptr());
-            Multiboot {
-                header: info,
-                paddr_to_slice: paddr_to_slice,
-                alloc_func: |_| core::ptr::null_mut(),
-            }
+            Multiboot { header: info, memory_management }
         })
     }
     
     /// Creates from a reference
-    pub fn from_ref(info: &'a mut MultibootInfo, alloc_func: unsafe fn(usize) -> *mut u8) -> Self {
-        Self {
-            header: info,
-            paddr_to_slice: |_, _| None,
-            alloc_func,
-        }
+    pub fn from_ref(
+        info: &'a mut MultibootInfo, memory_management: &'b mut dyn MemoryManagement
+    ) -> Self {
+        Self { header: info, memory_management }
     }
 
     unsafe fn cast<T>(&self, addr: PAddr) -> Option<&T> {
-        (self.paddr_to_slice)(addr, size_of::<T>()).map(|inner| transmute(inner.as_ptr()))
+        self.memory_management.paddr_to_slice(
+            addr, size_of::<T>()).map(|inner| transmute(inner.as_ptr())
+        )
     }
 
     /// Convert a C string into a u8 slice and from there into a &str.
@@ -168,27 +195,27 @@ impl<'a> Multiboot<'a> {
             ptr += 1;
             len += 1;
         }
-        (self.paddr_to_slice)(string, len).map(|slice| str::from_utf8_unchecked(slice))
+        self.memory_management.paddr_to_slice(string, len)
+        .map(|slice| str::from_utf8_unchecked(slice))
     }
     
     /// Convert a &str into a u8 slice and from there into a C string.
     ///
     /// This unsafe block requires the possibility to allocate memory
     /// (and assumes that this memory can be addresses using an u32).
-    unsafe fn convert_to_c_string(&self, string: Option<&str>) -> u32 {
-        let p = match string {
+    unsafe fn convert_to_c_string(&mut self, string: Option<&str>) -> u32 {
+        match string {
             Some(s) => {
                 let bytes = s.bytes();
                 let len = bytes.len();
-                let ptr = (self.alloc_func)(len + 1);
-                for (idx, byte) in bytes.chain(core::iter::once(0)).enumerate() {
-                    *(ptr.offset(idx.try_into().unwrap())) = byte;
+                let (addr, slice) = self.memory_management.allocate(len + 1).unwrap();
+                for (src, dst) in bytes.chain(core::iter::once(0)).zip(slice.iter_mut()) {
+                    *dst = src;
                 }
-                ptr
+                addr.try_into().unwrap()
             },
-            None => core::ptr::null_mut(),
-        };
-        p as u32
+            None => 0,
+        }
     }
 
     flag!(
@@ -315,7 +342,13 @@ impl<'a> Multiboot<'a> {
     }
     
     /// Command line to be passed to the kernel.
+    ///
+    /// The given string will be copied to newly allocated memory.
     pub fn set_command_line(&mut self, cmdline: Option<&str>) {
+        // free the old string if it exists
+        if self.has_cmdline() {
+            unsafe { self.memory_management.deallocate(self.header.cmdline.into()) };
+        }
         self.set_has_cmdline(cmdline.is_some());
         self.header.cmdline = unsafe { self.convert_to_c_string(cmdline) };
     }
@@ -331,17 +364,21 @@ impl<'a> Multiboot<'a> {
     
     /// Set the name of the bootloader.
     ///
-    /// This needs to allocate memory.
+    /// The given string will be copied to newly allocated memory.
     pub fn set_boot_loader_name(&mut self, name: Option<&str>) {
+        // free the old string if it exists
+        if self.has_boot_loader_name() {
+            unsafe { self.memory_management.deallocate(self.header.boot_loader_name.into()) };
+        }
         self.set_has_boot_loader_name(name.is_some());
         self.header.boot_loader_name = unsafe { self.convert_to_c_string(name) };
     }
 
     /// Discover all additional modules in multiboot.
-    pub fn modules(&'a self) -> Option<ModuleIter> {
+    pub fn modules(&'a self) -> Option<ModuleIter<'a, 'b>> {
         if self.has_modules() {
             unsafe {
-                (self.paddr_to_slice)(
+                self.memory_management.paddr_to_slice(
                     self.header.mods_addr as PAddr,
                     self.header.mods_count as usize * size_of::<MBModule>(),
                 )
@@ -361,29 +398,46 @@ impl<'a> Multiboot<'a> {
     
     /// Publish modules to the kernel.
     ///
-    /// This needs to allocate memory for the array.
-    pub fn set_modules(&mut self, modules: &[Module]) {
-        if !self.has_modules() {
-            self.header.mods_count = 0;
-            self.header.mods_addr = 0;
-            self.set_has_modules(true);
-        }
-        let len = modules.len();
-        self.header.mods_count = len.try_into().unwrap();
-        self.header.mods_addr = unsafe {
-            let mods_ptr = (self.alloc_func)(len * core::mem::size_of::<MBModule>())
-            .cast::<MBModule>();
-            for (mod_ptr, module) in (0..len)
-            .map(|i| (mods_ptr.offset(i.try_into().unwrap()), &modules[i])) {
-                *mod_ptr = MBModule {
-                    start: module.start.try_into().unwrap(),
-                    end: module.end.try_into().unwrap(),
-                    string: self.convert_to_c_string(module.string),
-                    reserved: 0,
+    /// This copies the given metadata into a newly allocated memory.
+    pub fn set_modules(&mut self, modules: Option<&[Module]>) {
+        // free the existing modules
+        if self.has_modules() {
+            unsafe {
+                if let Some(mods) = self.memory_management.paddr_to_slice(
+                    self.header.mods_addr.into(),
+                    self.header.mods_count as usize * core::mem::size_of::<MBModule>()
+                ) {
+                    let mods = slice::from_raw_parts(
+                        mods.as_ptr().cast::<MBModule>(), self.header.mods_count as usize
+                    );
+                    for module in mods {
+                        self.memory_management.deallocate(module.string.into());
+                    }
+                    self.memory_management.deallocate(self.header.mods_addr.into());
                 }
             }
-            mods_ptr as u32
-        };
+        }
+        self.set_has_modules(modules.is_some());
+        if let Some(mods) = modules {
+            let len = mods.len();
+            self.header.mods_count = mods.len().try_into().unwrap();
+            self.header.mods_addr = unsafe {
+                let (addr, slice) = self.memory_management.allocate(
+                    len * core::mem::size_of::<MBModule>()
+                ).unwrap();
+                // change type
+                let slice = slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<MBModule>(), len);
+                for (src, dst) in mods.iter().zip(slice.iter_mut()) {
+                    *dst = MBModule {
+                        start: src.start.try_into().unwrap(),
+                        end: src.end.try_into().unwrap(),
+                        string: self.convert_to_c_string(src.string),
+                        reserved: 0,
+                    }
+                }
+                addr.try_into().unwrap()
+            };
+        }
     }
     
     /// Get the symbols.
@@ -422,7 +476,7 @@ impl<'a> Multiboot<'a> {
     }
 
     /// Discover all memory regions in the multiboot memory map.
-    pub fn memory_regions(&'a self) -> Option<MemoryMapIter> {
+    pub fn memory_regions(&'a self) -> Option<MemoryMapIter<'a, 'b>> {
         match self.has_memory_map() {
             true => {
                 let start = self.header.mmap_addr;
@@ -439,13 +493,17 @@ impl<'a> Multiboot<'a> {
     
     /// Publish the memory regions to the kernel.
     ///
-    /// The address of the passed slice is being passed to the kernel.
-    pub fn set_memory_regions(&mut self, regions: Option<&'static mut [MemoryEntry]>) {
+    /// The parameter is a pair of address and number of [`MemoryEntry`]s.
+    ///
+    /// Note that the underlying memory has to stay intact.
+    ///
+    /// [`MemoryEntry`]: struct.MemoryEntry.html
+    pub fn set_memory_regions(&mut self, regions: Option<(PAddr, usize)>) {
         self.set_has_memory_map(regions.is_some());
-        if let Some(r) = regions {
-            self.header.mmap_addr = r.as_mut_ptr() as u32;
+        if let Some((addr, count)) = regions {
+            self.header.mmap_addr = addr.try_into().unwrap();
             self.header.mmap_length = (
-                r.len() * core::mem::size_of::<MemoryEntry>()
+                count * core::mem::size_of::<MemoryEntry>()
             ).try_into().unwrap();
         }
     }
@@ -625,13 +683,13 @@ impl MemoryEntry {
 }
 
 /// Used to iterate over all memory regions provided by multiboot.
-pub struct MemoryMapIter<'a> {
-    mb: &'a Multiboot<'a>,
+pub struct MemoryMapIter<'a, 'b> {
+    mb: &'a Multiboot<'a, 'b>,
     current: u32,
     end: u32,
 }
 
-impl<'a> Iterator for MemoryMapIter<'a> {
+impl<'a, 'b> Iterator for MemoryMapIter<'a, 'b> {
     type Item = &'a MemoryEntry;
 
     #[inline]
@@ -707,12 +765,12 @@ impl<'a> Module<'a> {
 }
 
 /// Used to iterate over all modules in multiboot.
-pub struct ModuleIter<'a> {
-    mb: &'a Multiboot<'a>,
+pub struct ModuleIter<'a, 'b> {
+    mb: &'a Multiboot<'a, 'b>,
     mods: &'a [MBModule],
 }
 
-impl<'a> Iterator for ModuleIter<'a> {
+impl<'a, 'b> Iterator for ModuleIter<'a, 'b> {
     type Item = Module<'a>;
 
     #[inline]
@@ -791,16 +849,15 @@ impl Debug for ElfSymbols {
 }
 
 impl ElfSymbols {
-    /// Uses a passed pointer for the symbols.
+    /// Uses a passed address for the symbols.
     ///
-    /// Note that the underlying slice has to stay intact,
-    /// else the passed pointer will be invalid.
+    /// Note that the underlying memory has to stay intact.
     ///
     /// Also, this doesn't check whether the supplied parameters are correct.
-    pub fn from_ptr(num: u32, size: u32, ptr: *const u8, shndx: u32) -> Self {
+    pub fn from_addr(num: u32, size: u32, addr: PAddr, shndx: u32) -> Self {
         Self {
             num, size, shndx,
-            addr: (ptr as usize).try_into().unwrap(),
+            addr: addr.try_into().unwrap(),
         }
     }
 }

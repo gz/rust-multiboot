@@ -45,6 +45,7 @@ pub use information::MultibootInfo;
 pub use information::BootDevice;
 pub use information::MemoryType;
 pub use information::MemoryEntry;
+pub use information::MemoryManagement;
 pub use information::MemoryMapIter;
 pub use information::Module;
 pub use information::ModuleIter;

@@ -3,12 +3,24 @@ extern crate multiboot;
 
 use core::mem;
 use core::slice;
-use multiboot::{Multiboot, PAddr};
+use multiboot::{MemoryManagement, Multiboot, PAddr};
 
-pub fn paddr_to_slice<'a>(p: multiboot::PAddr, sz: usize) -> Option<&'a [u8]> {
-    unsafe {
+struct Mem;
+
+impl MemoryManagement for Mem {
+    unsafe fn paddr_to_slice(&self, p: PAddr, sz: usize) -> Option<&'static [u8]> {
         let ptr = mem::transmute(p);
         Some(slice::from_raw_parts(ptr, sz))
+    }
+    
+    unsafe fn allocate(&mut self, length: usize) -> Option<(PAddr, &mut [u8])> {
+        None
+    }
+    
+    unsafe fn deallocate(&mut self, addr: PAddr) {
+        if addr != 0 {
+            unimplemented!()
+        }
     }
 }
 
@@ -16,7 +28,7 @@ pub fn paddr_to_slice<'a>(p: multiboot::PAddr, sz: usize) -> Option<&'a [u8]> {
 /// provided in %ebx on start-up.
 pub fn use_multiboot(mboot_ptr: PAddr) {
     unsafe {
-        Multiboot::new(mboot_ptr, paddr_to_slice);
+        Multiboot::from_ptr(mboot_ptr, &mut Mem {});
     }
 }
 
