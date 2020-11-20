@@ -1,4 +1,8 @@
 //! This module contains the pieces for parsing Multiboot headers.
+//!
+//! If you don't know where to start, take a look at [`Header`].
+//!
+//! [`Header`]: struct.Header.html
 
 use core::convert::TryInto;
 use core::fmt;

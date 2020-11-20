@@ -10,8 +10,8 @@
 //!   * https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
 //!   * http://git.savannah.gnu.org/cgit/grub.git/tree/doc/multiboot.texi?h=multiboot
 //!
-//! [`Multiboot`]: struct.Multiboot.html
-//! [`Header`]: struct.Header.html
+//! [`Multiboot`]: information/struct.Multiboot.html
+//! [`Header`]: header/struct.Header.html
 
 #![no_std]
 #![crate_name = "multiboot"]
@@ -45,27 +45,5 @@ macro_rules! flag {
     );
 }
 
-mod information;
-pub use information::SIGNATURE_EAX;
-pub use information::PAddr;
-pub use information::Multiboot;
-pub use information::MultibootInfo;
-pub use information::BootDevice;
-pub use information::MemoryType;
-pub use information::MemoryEntry;
-pub use information::MemoryManagement;
-pub use information::MemoryMapIter;
-pub use information::Module;
-pub use information::ModuleIter;
-pub use information::SymbolType;
-pub use information::AOutSymbols;
-pub use information::ElfSymbols;
-pub use information::FramebufferTable;
-pub use information::ColorInfoType;
-pub use information::ColorInfoRgb;
-
-mod header;
-pub use header::Header;
-pub use header::MultibootAddresses;
-pub use header::MultibootVideoMode;
-pub use header::VideoModeType;
+pub mod information;
+pub mod header;

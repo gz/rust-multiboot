@@ -1,4 +1,8 @@
 //! This modules contains the pieces for parsing and creating Multiboot information structures.
+//!
+//! If you don't know where to start, take a look at [`Multiboot`].
+//!
+//! [`Multiboot`]: struct.Multiboot.html
 
 use core::convert::TryInto;
 use core::cmp;

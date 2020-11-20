@@ -3,7 +3,7 @@ extern crate multiboot;
 
 use core::mem;
 use core::slice;
-use multiboot::{MemoryManagement, Multiboot, PAddr};
+use multiboot::information::{MemoryManagement, Multiboot, PAddr};
 
 struct Mem;
 
