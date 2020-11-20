@@ -890,7 +890,7 @@ impl fmt::Debug for FramebufferTable {
 impl FramebufferTable {
     /// Create this table from a color info.
     pub fn new(
-        address: u64, pitch: u32, width: u32, height: u32, bpp: u8, color_info_type: ColorInfoType
+        addr: u64, pitch: u32, width: u32, height: u32, bpp: u8, color_info_type: ColorInfoType
     ) -> Self {
         let (ty, color_info) = match color_info_type {
             ColorInfoType::Palette(palette) => (0, ColorInfo { palette }),
@@ -898,7 +898,7 @@ impl FramebufferTable {
             ColorInfoType::Text => (2, ColorInfo::default()),
         };
         Self {
-            addr: address,
+            addr,
             pitch,
             width,
             height,
