@@ -209,8 +209,8 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         }
         let mut len = 0;
         let mut ptr = string;
-        while let Some(byte) = self.cast::<u8>(ptr) {
-            if *byte == 0 {
+        while let Some(byte) = self.memory_management.paddr_to_slice(ptr, 1) {
+            if byte == &[0] {
                 break;
             }
             ptr += 1;
