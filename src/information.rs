@@ -557,7 +557,7 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         })
         .max((self.header.mmap_addr + self.header.mmap_length) as u64)
         .max((self.header.drives_addr + self.header.drives_length) as u64)
-        .max(self.modules().unwrap().map(|m| m.end).max().unwrap_or(end));
+        .max(self.modules().into_iter().flatten().map(|m| m.end).max().unwrap_or(end));
 
         round_up!(end, 4096)
     }
