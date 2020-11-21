@@ -14,10 +14,3 @@ license = "MIT"
 
 [dependencies]
 paste = "1.0"
-
-[[test]]
-name = "mbtest"
-harness = false
-
-[[test]]
-name = "header"
