@@ -90,7 +90,7 @@ fn empty() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn memory_bounds() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn command_line() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
     assert_eq!(mem.string_buffer, [0x74, 0x65, 0x73, 0x74, 0x00]); // 'test'
 }
 
@@ -226,7 +226,7 @@ fn modules() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
     assert_eq!(mem.string_buffer, [0x74, 0x65, 0x73, 0x74, 0x00]); // 'test'
     assert_eq!(mem.module_buffer, [
         0x78, 0x56, 0x34, 0x12, // start
@@ -280,7 +280,7 @@ fn symbols() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
 }
 
 #[test]
@@ -325,7 +325,7 @@ fn mmap() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
     let memory_entry = MemoryEntry::new(0x12345678, 4096, MemoryType::Defect);
     let expected_entry: [u8; 24] = [
         0x14, 0x00, 0x00, 0x00, // size
@@ -378,7 +378,7 @@ fn boot_loader_name() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
     assert_eq!(mem.string_buffer, [0x74, 0x65, 0x73, 0x74, 0x00]); // 'test'
 }
 
@@ -433,5 +433,21 @@ fn framebuffer() {
         0x00, 0x08, 0x08, 0x08, 0x10, 0x08, // color_info
         0x00, 0x00, // alignment
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 120]>(info) }, expected);
+    assert_eq!(multiboot_info_to_bytes(info), expected);
+}
+
+fn multiboot_info_to_bytes(info: MultibootInfo) -> [u8; 120] {
+    assert_eq!(mem::size_of::<MultibootInfo>(), 120);
+
+    let mut bytes = [0; 120];
+
+    let info_bytes: [u8; 120] = unsafe { mem::transmute(info) };
+    for (index, byte) in info_bytes.iter().enumerate() {
+        // ignore padding bytes
+        if ![0x6E, 0x6F, 0x76, 0x77].contains(&index) {
+            bytes[index] = *byte;
+        }
+    }
+
+    bytes
 }
