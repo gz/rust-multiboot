@@ -6,22 +6,36 @@ This is a multiboot (v1) library written entirely in rust. The code depends only
 ```rust
 extern crate multiboot;
 
-use multiboot::{Multiboot, PAddr};
-use core::slice;
-use core::mem;
+use multiboot::information::{MemoryManagement, Multiboot, PAddr};
+use core::{slice, mem};
 
-pub fn paddr_to_slice<'a>(p: multiboot::PAddr, sz: usize) -> Option<&'a [u8]> {
-    unsafe {
-        let ptr = mem::transmute(p);
-        Some(slice::from_raw_parts(ptr, sz))
+struct Mem;
+
+impl MemoryManagement for Mem {
+    unsafe fn paddr_to_slice(&self, addr: PAddr, size: usize) -> Option<&'static [u8]> {
+        let ptr = mem::transmute(addr);
+        Some(slice::from_raw_parts(ptr, size))
+    }
+    
+    // If you only want to read fields, you can simply return `None`.
+    unsafe fn allocate(&mut self, _length: usize) -> Option<(PAddr, &mut [u8])> {
+        None
+    }
+    
+    unsafe fn deallocate(&mut self, addr: PAddr) {
+        if addr != 0 {
+            unimplemented!()
+        }
     }
 }
 
+static mut MEM: Mem = Mem;
+
 /// mboot_ptr is the initial pointer to the multiboot structure
 /// provided in %ebx on start-up.
-pub fn use_multiboot(mboot_ptr: PAddr) {
+pub fn use_multiboot(mboot_ptr: PAddr) -> Option<Multiboot<'static, 'static>> {
     unsafe {
-        Multiboot::new(mboot_ptr, paddr_to_slice);
+        Multiboot::from_ptr(mboot_ptr, &mut MEM)
     }
 }
 ```
@@ -29,4 +43,4 @@ pub fn use_multiboot(mboot_ptr: PAddr) {
 Functionality is still not complete and patches are welcome!
 
 ## Documentation
-* [API Documentation](http://gz.github.io/rust-multiboot/multiboot/)
+* [API Documentation](https://docs.rs/multiboot/0.6.0)

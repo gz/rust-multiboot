@@ -6,7 +6,7 @@ authors = ["Gerd Zellweger <mail@gerdzellweger.com>", "Dan Schatzberg <schatzber
 description = "Library to access multiboot structures."
 homepage = "https://github.com/gz/rust-multiboot"
 repository = "https://github.com/gz/rust-multiboot"
-documentation = "http://gz.github.io/rust-multiboot/multiboot/"
+documentation = "https://docs.rs/multiboot/0.6.0"
 
 readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]
