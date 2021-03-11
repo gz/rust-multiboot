@@ -443,6 +443,7 @@ fn multiboot_info_to_bytes(info: MultibootInfo) -> [u8; 120] {
 
     let info_bytes: [u8; 120] = unsafe { mem::transmute(info) };
     for (index, byte) in info_bytes.iter().enumerate() {
+        // ignore padding bytes
         if ![0x6E, 0x6F, 0x76, 0x77].contains(&index) {
             bytes[index] = *byte;
         }
