@@ -1,12 +1,12 @@
 [package]
 name = "multiboot"
-version = "0.6.0"
-authors = ["Gerd Zellweger <mail@gerdzellweger.com>", "Dan Schatzberg <schatzberg.dan@gmail.com>", "Adrian Danis <Adrian.Danis@nicta.com.au>", "Stephane Duverger <stephane.duverger@gmail.com>", "Niklas Sombert <niklas@ytvwld.de>"]
+version = "0.7.0"
+authors = ["Gerd Zellweger <mail@gerdzellweger.com>", "Dan Schatzberg <schatzberg.dan@gmail.com>", "Adrian Danis <Adrian.Danis@nicta.com.au>", "Stephane Duverger <stephane.duverger@gmail.com>", "Niklas Sombert <niklas@ytvwld.de>", "Paul Cacheux <paulcacheux@gmail.com>"]
 
 description = "Library to access multiboot structures."
 homepage = "https://github.com/gz/rust-multiboot"
 repository = "https://github.com/gz/rust-multiboot"
-documentation = "https://docs.rs/multiboot/0.6.0"
+documentation = "https://docs.rs/multiboot/"
 
 readme = "README.md"
 keywords = ["multiboot", "kernel", "os", "bootloader", "x86"]
