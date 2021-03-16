@@ -43,4 +43,4 @@ pub fn use_multiboot(mboot_ptr: PAddr) -> Option<Multiboot<'static, 'static>> {
 Functionality is still not complete and patches are welcome!
 
 ## Documentation
-* [API Documentation](https://docs.rs/multiboot/0.6.0)
+* [API Documentation](https://docs.rs/multiboot/)
