@@ -14,3 +14,4 @@ license = "MIT"
 
 [dependencies]
 paste = "1.0"
+bitflags = "1.2.1"

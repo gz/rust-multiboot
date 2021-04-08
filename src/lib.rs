@@ -17,6 +17,9 @@
 #![crate_name = "multiboot"]
 #![crate_type = "lib"]
 
+#[macro_use]
+extern crate bitflags;
+
 macro_rules! round_up {
     ($num:expr, $s:expr) => {
         (($num + $s - 1) / $s) * $s
@@ -45,5 +48,6 @@ macro_rules! flag {
     );
 }
 
-pub mod information;
+pub mod elf_section;
 pub mod header;
+pub mod information;

@@ -12,6 +12,8 @@ use core::mem::{size_of, transmute};
 use core::slice;
 use core::str;
 
+use elf_section::ElfSectionIter;
+
 /// Value found in %eax after multiboot jumps to our entry point.
 pub const SIGNATURE_EAX: u32 = 0x2BADB002;
 
@@ -902,6 +904,13 @@ impl ElfSymbols {
             num, size, shndx,
             addr: addr.try_into().unwrap(),
         }
+    }
+
+    pub fn sections(&self) -> ElfSectionIter {
+        let first_section_addr = self.addr as *const u8;
+        ElfSectionIter::new(first_section_addr, self.num, self.size, unsafe {
+            first_section_addr.offset((self.size * self.shndx) as isize)
+        })
     }
 }
 
