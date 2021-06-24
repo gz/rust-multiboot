@@ -5,7 +5,7 @@ use core::convert::TryInto;
 use core::mem;
 use core::slice;
 use multiboot::information::{
-    ColorInfoType, MemoryManagement, MemoryType, Multiboot, PAddr, SymbolType
+    ColorInfoType, MemoryManagement, MemoryType, Multiboot, PAddr, SymbolType,
 };
 
 const TEST_STR: [u8; 5] = [0x74, 0x65, 0x73, 0x74, 0x00]; // 'test'
@@ -13,7 +13,7 @@ const TEST_MOD: [u8; 16] = [
     0x78, 0x56, 0x34, 0x12, // start
     0x21, 0x43, 0x65, 0x87, // end
     0xaa, 0xaa, 0xaa, 0xaa, // TEST_STR
-    0x00, 0x00, 0x00, 0x00 // reserved
+    0x00, 0x00, 0x00, 0x00, // reserved
 ];
 const TEST_REGION: [u8; 24] = [
     0x20, 0x00, 0x00, 0x00, // size
@@ -38,14 +38,14 @@ impl MemoryManagement for Mem {
                 let ptr: usize = p.try_into().unwrap();
                 let ptr = mem::transmute(ptr);
                 Some(slice::from_raw_parts(ptr, sz))
-            },
+            }
         }
     }
-    
+
     unsafe fn allocate(&mut self, _length: usize) -> Option<(PAddr, &mut [u8])> {
         None
     }
-    
+
     unsafe fn deallocate(&mut self, addr: PAddr) {
         if addr != 0 {
             unimplemented!()
@@ -53,14 +53,12 @@ impl MemoryManagement for Mem {
     }
 }
 
-static mut MEM: Mem = Mem{};
+static mut MEM: Mem = Mem {};
 
 /// mboot_ptr is the initial pointer to the multiboot structure
 /// provided in %ebx on start-up.
 pub fn use_multiboot(mboot_ptr: PAddr) -> Option<Multiboot<'static, 'static>> {
-    unsafe {
-        Multiboot::from_ptr(mboot_ptr, &mut MEM)
-    }
+    unsafe { Multiboot::from_ptr(mboot_ptr, &mut MEM) }
 }
 
 #[test]
@@ -663,8 +661,8 @@ fn framebuffer() {
             assert_eq!(rgb.green_mask_size, 8);
             assert_eq!(rgb.blue_field_position, 16);
             assert_eq!(rgb.blue_mask_size, 8);
-        },
-        _ => panic!("wrong color info")
+        }
+        _ => panic!("wrong color info"),
     };
     assert_eq!(parsed.find_highest_address(), 0);
 }

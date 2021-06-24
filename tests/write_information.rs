@@ -3,7 +3,7 @@ extern crate multiboot;
 
 use core::mem;
 use multiboot::information::{
-    ColorInfoType, ColorInfoRgb, ElfSymbols, FramebufferTable, MemoryEntry, MemoryManagement,
+    ColorInfoRgb, ColorInfoType, ElfSymbols, FramebufferTable, MemoryEntry, MemoryManagement,
     MemoryType, Module, Multiboot, MultibootInfo, PAddr, SymbolType,
 };
 
@@ -25,7 +25,7 @@ impl MemoryManagement for Mem {
     unsafe fn paddr_to_slice(&self, _addr: PAddr, _size: usize) -> Option<&'static [u8]> {
         None
     }
-    
+
     unsafe fn allocate(&mut self, length: usize) -> Option<(PAddr, &mut [u8])> {
         match length {
             5 => Some((0x12345678, &mut self.string_buffer)), // for our test string
@@ -33,7 +33,7 @@ impl MemoryManagement for Mem {
             _ => None,
         }
     }
-    
+
     unsafe fn deallocate(&mut self, addr: PAddr) {
         if addr != 0 {
             unimplemented!()
@@ -228,12 +228,15 @@ fn modules() {
     ];
     assert_eq!(multiboot_info_to_bytes(info), expected);
     assert_eq!(mem.string_buffer, [0x74, 0x65, 0x73, 0x74, 0x00]); // 'test'
-    assert_eq!(mem.module_buffer, [
-        0x78, 0x56, 0x34, 0x12, // start
-        0x21, 0x43, 0x65, 0x87, // end
-        0x78, 0x56, 0x34, 0x12, // TEST_STR
-        0x00, 0x00, 0x00, 0x00 // reserved
-    ]);
+    assert_eq!(
+        mem.module_buffer,
+        [
+            0x78, 0x56, 0x34, 0x12, // start
+            0x21, 0x43, 0x65, 0x87, // end
+            0x78, 0x56, 0x34, 0x12, // TEST_STR
+            0x00, 0x00, 0x00, 0x00 // reserved
+        ]
+    );
 }
 
 #[test]
@@ -243,7 +246,7 @@ fn symbols() {
     let mut info = MultibootInfo::default();
     let mut multiboot = Multiboot::from_ref(&mut info, &mut mem);
     multiboot.set_symbols(Some(SymbolType::Elf(ElfSymbols::from_addr(
-        1, 8, 0x12345678, 0
+        1, 8, 0x12345678, 0,
     ))));
     let expected: [u8; 120] = [
         0x20, 0x00, 0x00, 0x00, // flags
@@ -333,7 +336,10 @@ fn mmap() {
         0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // length
         0x05, 0x00, 0x00, 0x00, // type
     ];
-    assert_eq!(unsafe { mem::transmute::<_, [u8; 24]>(memory_entry) }, expected_entry);
+    assert_eq!(
+        unsafe { mem::transmute::<_, [u8; 24]>(memory_entry) },
+        expected_entry
+    );
 }
 
 #[test]
@@ -389,7 +395,12 @@ fn framebuffer() {
     let mut info = MultibootInfo::default();
     let mut multiboot = Multiboot::from_ref(&mut info, &mut mem);
     multiboot.set_framebuffer_table(Some(FramebufferTable::new(
-        0x12345678, 800 * 4, 800, 600, 32, ColorInfoType::Rgb(ColorInfoRgb {
+        0x12345678,
+        800 * 4,
+        800,
+        600,
+        32,
+        ColorInfoType::Rgb(ColorInfoRgb {
             red_field_position: 0,
             red_mask_size: 8,
             green_field_position: 8,

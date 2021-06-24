@@ -56,31 +56,45 @@ impl Header {
         let (header, header_start) = Self::find_header(buffer)?;
         // then check that it's valid
         assert_eq!(header.magic, MULTIBOOT_HEADER_MAGIC);
-        assert_eq!(header.magic.wrapping_add(header.flags).wrapping_add(header.checksum), 0);
+        assert_eq!(
+            header
+                .magic
+                .wrapping_add(header.flags)
+                .wrapping_add(header.checksum),
+            0
+        );
         // finally, return it
-        Some(Self { header, header_start })
+        Some(Self {
+            header,
+            header_start,
+        })
     }
-    
+
     /// Find the header and copy it from a given slice.
     fn find_header(buffer: &[u8]) -> Option<(MultibootHeader, u32)> {
         // the magic is 32 bit aligned and inside the first 8192 bytes
-        let magic_index = match buffer.chunks_exact(4).take(8192 / 4).position(|vals|
+        let magic_index = match buffer.chunks_exact(4).take(8192 / 4).position(|vals| {
             u32::from_le_bytes(vals.try_into().unwrap()) // yes, there's 4 bytes here
             == MULTIBOOT_HEADER_MAGIC
-        ) {
+        }) {
             Some(idx) => idx * 4,
-            None => return None
+            None => return None,
         };
         const HEADER_SIZE: usize = core::mem::size_of::<MultibootHeader>();
         // TryInto only works for lengths <= 32, so let's copy the stuff :(
         let mut header_bytes: [u8; HEADER_SIZE] = [0; HEADER_SIZE];
-        buffer.iter().skip(magic_index).zip(header_bytes.iter_mut()).for_each(|(&buf, arr)| {
-            *arr = buf;
-        });
-        let header = unsafe {core::mem::transmute::<[u8; HEADER_SIZE], MultibootHeader>(header_bytes)};
+        buffer
+            .iter()
+            .skip(magic_index)
+            .zip(header_bytes.iter_mut())
+            .for_each(|(&buf, arr)| {
+                *arr = buf;
+            });
+        let header =
+            unsafe { core::mem::transmute::<[u8; HEADER_SIZE], MultibootHeader>(header_bytes) };
         Some((header, magic_index as u32))
     }
-    
+
     flag!(
         doc = "If true, then the modules have to be page aligned.",
         wants_modules_page_aligned,
@@ -103,7 +117,7 @@ impl Header {
         has_multiboot_addresses,
         16
     );
-    
+
     /// Get the load addresses specified in the Multiboot header.
     ///
     /// If this function returns `None` the binary has to be loaded as an ELF instead.
@@ -115,7 +129,7 @@ impl Header {
             None
         }
     }
-    
+
     /// Get the preferred video mode specified in the Multiboot header.
     pub fn get_preferred_video_mode(&self) -> Option<MultibootVideoMode> {
         if self.has_video_mode() {
@@ -129,7 +143,10 @@ impl Header {
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Header")
-            .field("wants_modules_page_aligned", &self.wants_modules_page_aligned())
+            .field(
+                "wants_modules_page_aligned",
+                &self.wants_modules_page_aligned(),
+            )
             .field("wants_memory_information", &self.wants_memory_information())
             .field("addresses", &self.get_addresses())
             .field("video_mode", &self.get_preferred_video_mode())
@@ -179,7 +196,7 @@ impl MultibootVideoMode {
             _ => None,
         }
     }
-    
+
     /// Get the preferred depth, if possible.
     ///
     /// Only pixel-based modes have a depth, text modes do not.

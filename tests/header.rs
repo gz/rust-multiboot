@@ -113,7 +113,10 @@ fn video_mode_pixel() {
     assert!(parsed.get_addresses().is_none());
     let video_mode = parsed.get_preferred_video_mode().unwrap();
     assert_eq!(video_mode.depth().unwrap(), 32);
-    assert_eq!(video_mode.mode_type().unwrap(), VideoModeType::LinearGraphics);
+    assert_eq!(
+        video_mode.mode_type().unwrap(),
+        VideoModeType::LinearGraphics
+    );
 }
 
 #[test]
