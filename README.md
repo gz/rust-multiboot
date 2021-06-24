@@ -5,7 +5,7 @@ This is a multiboot (v1) library written entirely in rust. The code depends only
 ## How-to use
 
 ```rust
-extern crate multiboot;
+extern crate core;
 
 use multiboot::information::{MemoryManagement, Multiboot, PAddr};
 use core::{slice, mem};
