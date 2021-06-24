@@ -1,4 +1,5 @@
-# Multiboot [![Crates.io](https://img.shields.io/crates/v/multiboot.svg)](https://crates.io/crates/multiboot)
+# Multiboot [![Crates.io](https://img.shields.io/crates/v/multiboot.svg)](https://crates.io/crates/multiboot) ![Build](https://github.com/gz/rust-multiboot/actions/workflows/standard.yml/badge.svg)
+
 
 This is a multiboot (v1) library written entirely in rust. The code depends only on libcore.
 
