@@ -24,16 +24,16 @@ macro_rules! round_up {
 }
 
 macro_rules! flag {
-    ($doc:meta, $fun:ident, $bit:expr) => (
+    ($doc:meta, $fun:ident, $bit:expr) => {
         #[$doc]
         pub fn $fun(&self) -> bool {
             //assert!($bit <= 31);
             (self.header.flags & (1 << $bit)) > 0
         }
-        
+
         paste::paste! {
             #[$doc]
-            fn [< set_ $fun >] (&mut self, flag: bool) {
+            pub fn [< set_ $fun >] (&mut self, flag: bool) {
                 //assert!($bit <= 31);
                 self.header.flags = if flag {
                     self.header.flags | (1 << $bit)
@@ -42,8 +42,20 @@ macro_rules! flag {
                 };
             }
         }
-    );
+    };
 }
 
-pub mod information;
 pub mod header;
+pub mod information;
+
+#[cfg(doctest)]
+mod test_readme {
+    macro_rules! external_doc_test {
+        ($x:expr) => {
+            #[doc = $x]
+            extern "C" {}
+        };
+    }
+
+    external_doc_test!(include_str!("../README.md"));
+}

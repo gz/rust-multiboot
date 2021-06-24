@@ -1,8 +1,9 @@
-# Multiboot [![Build Status](https://travis-ci.org/gz/rust-multiboot.svg)](https://travis-ci.org/gz/rust-multiboot) [![Crates.io](https://img.shields.io/crates/v/multiboot.svg)](https://crates.io/crates/multiboot)
+# Multiboot [![Crates.io](https://img.shields.io/crates/v/multiboot.svg)](https://crates.io/crates/multiboot)
 
 This is a multiboot (v1) library written entirely in rust. The code depends only on libcore.
 
 ## How-to use
+
 ```rust
 extern crate multiboot;
 
@@ -43,4 +44,5 @@ pub fn use_multiboot(mboot_ptr: PAddr) -> Option<Multiboot<'static, 'static>> {
 Functionality is still not complete and patches are welcome!
 
 ## Documentation
+
 * [API Documentation](https://docs.rs/multiboot/)

@@ -4,8 +4,8 @@
 //!
 //! [`Multiboot`]: struct.Multiboot.html
 
-use core::convert::TryInto;
 use core::cmp;
+use core::convert::TryInto;
 use core::fmt;
 use core::fmt::Debug;
 use core::mem::{size_of, transmute};
@@ -23,25 +23,38 @@ pub type PAddr = u64;
 pub trait MemoryManagement {
     /// Translates physical addr + size into a kernel accessible slice.
     ///
-    /// The simplest paddr_to_slice function would for example be just the identity
-    /// function. But this may vary depending on how your page table layout looks like.
+    /// The simplest paddr_to_slice function would for example be just the
+    /// identity function. But this may vary depending on how your page table
+    /// layout looks like.
     ///
     /// If you only want to set fields, this can just always return `None`.
+    ///
+    /// # Safety
+    /// Pretty unsafe. Translate a physical buffer in multiboot into something
+    /// accessible in the current address space. Probably involves
+    /// querying/knowledge about page-table setup. Also might want to verify
+    /// that multiboot information is actually valid.
     unsafe fn paddr_to_slice(&self, addr: PAddr, length: usize) -> Option<&'static [u8]>;
-    
+
     /// Allocates `length` bytes.
     ///
     /// The returned tuple consists of the physical address (that goes into the struct)
     /// and the slice which to use to write to.
     ///
     /// If you only want to read fields, this can just always return `None`.
+    ///
+    /// # Safety
+    /// Lifetime of buffer should be >= self.
     unsafe fn allocate(&mut self, length: usize) -> Option<(PAddr, &mut [u8])>;
-    
+
     /// Free the previously allocated memory.
     ///
     /// This should handle null pointers by doing nothing.
     ///
     /// If you only want to read fields, this can just always panic.
+    ///
+    /// # Safety
+    /// TBD.
     unsafe fn deallocate(&mut self, addr: PAddr);
 }
 
@@ -140,7 +153,7 @@ pub struct MultibootInfo {
     _vbe_interface_seg: u16,
     _vbe_interface_off: u16,
     _vbe_interface_len: u16,
-    
+
     framebuffer_table: FramebufferTable,
 }
 
@@ -167,12 +180,17 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         mboot_ptr: PAddr,
         memory_management: &'b mut dyn MemoryManagement,
     ) -> Option<Multiboot<'a, 'b>> {
-        memory_management.paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>()).map(move |inner| {
-            let info = transmute(inner.as_ptr());
-            Multiboot { header: info, memory_management }
-        })
+        memory_management
+            .paddr_to_slice(mboot_ptr, size_of::<MultibootInfo>())
+            .map(move |inner| {
+                let info = &mut *(inner.as_ptr() as *mut MultibootInfo);
+                Multiboot {
+                    header: info,
+                    memory_management,
+                }
+            })
     }
-    
+
     /// Initializes this struct from an already existing [`MultibootInfo`] reference.
     ///
     /// In combination with [`MultibootInfo::default`] this is useful for writing a bootloader.
@@ -190,15 +208,19 @@ impl<'a, 'b> Multiboot<'a, 'b> {
     /// [`MultibootInfo`]: struct.MultibootInfo.html
     /// [`MultibootInfo::default`]: struct.MultibootInfo.html#impl-Default
     pub fn from_ref(
-        info: &'a mut MultibootInfo, memory_management: &'b mut dyn MemoryManagement
+        info: &'a mut MultibootInfo,
+        memory_management: &'b mut dyn MemoryManagement,
     ) -> Self {
-        Self { header: info, memory_management }
+        Self {
+            header: info,
+            memory_management,
+        }
     }
 
     unsafe fn cast<T>(&self, addr: PAddr) -> Option<&T> {
-        self.memory_management.paddr_to_slice(
-            addr, size_of::<T>()).map(|inner| transmute(inner.as_ptr())
-        )
+        self.memory_management
+            .paddr_to_slice(addr, size_of::<T>())
+            .map(|inner| &*(inner.as_ptr() as *const T))
     }
 
     /// Convert a C string into a u8 slice and from there into a &str.
@@ -210,16 +232,17 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         let mut len = 0;
         let mut ptr = string;
         while let Some(byte) = self.memory_management.paddr_to_slice(ptr, 1) {
-            if byte == &[0] {
+            if byte == [0] {
                 break;
             }
             ptr += 1;
             len += 1;
         }
-        self.memory_management.paddr_to_slice(string, len)
-        .map(|slice| str::from_utf8_unchecked(slice))
+        self.memory_management
+            .paddr_to_slice(string, len)
+            .map(|slice| str::from_utf8_unchecked(slice))
     }
-    
+
     /// Convert a &str into a u8 slice and from there into a C string.
     ///
     /// This unsafe block requires the possibility to allocate memory
@@ -234,7 +257,7 @@ impl<'a, 'b> Multiboot<'a, 'b> {
                     *dst = src;
                 }
                 addr.try_into().unwrap()
-            },
+            }
             None => 0,
         }
     }
@@ -328,7 +351,7 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             false => None,
         }
     }
-    
+
     /// Sets the memory bounds (lower, upper).
     ///
     /// This is one call because Multiboot requires both or none to be set.
@@ -361,19 +384,22 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             None
         }
     }
-    
+
     /// Command line to be passed to the kernel.
     ///
     /// The given string will be copied to newly allocated memory.
     pub fn set_command_line(&mut self, cmdline: Option<&str>) {
         // free the old string if it exists
         if self.has_cmdline() {
-            unsafe { self.memory_management.deallocate(self.header.cmdline.into()) };
+            unsafe {
+                self.memory_management
+                    .deallocate(self.header.cmdline.into())
+            };
         }
         self.set_has_cmdline(cmdline.is_some());
         self.header.cmdline = unsafe { self.convert_to_c_string(cmdline) };
     }
-    
+
     /// Get the name of the bootloader.
     pub fn boot_loader_name(&self) -> Option<&'a str> {
         if self.has_boot_loader_name() {
@@ -382,14 +408,17 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             None
         }
     }
-    
+
     /// Set the name of the bootloader.
     ///
     /// The given string will be copied to newly allocated memory.
     pub fn set_boot_loader_name(&mut self, name: Option<&str>) {
         // free the old string if it exists
         if self.has_boot_loader_name() {
-            unsafe { self.memory_management.deallocate(self.header.boot_loader_name.into()) };
+            unsafe {
+                self.memory_management
+                    .deallocate(self.header.boot_loader_name.into())
+            };
         }
         self.set_has_boot_loader_name(name.is_some());
         self.header.boot_loader_name = unsafe { self.convert_to_c_string(name) };
@@ -399,24 +428,22 @@ impl<'a, 'b> Multiboot<'a, 'b> {
     pub fn modules(&'a self) -> Option<ModuleIter<'a, 'b>> {
         if self.has_modules() {
             unsafe {
-                self.memory_management.paddr_to_slice(
-                    self.header.mods_addr as PAddr,
-                    self.header.mods_count as usize * size_of::<MBModule>(),
-                )
-                .map(|slice| {
-                    let ptr = transmute(slice.as_ptr());
-                    let mods = slice::from_raw_parts(ptr, self.header.mods_count as usize);
-                    ModuleIter {
-                        mb: &self,
-                        mods: mods,
-                    }
-                })
+                self.memory_management
+                    .paddr_to_slice(
+                        self.header.mods_addr as PAddr,
+                        self.header.mods_count as usize * size_of::<MBModule>(),
+                    )
+                    .map(|slice| {
+                        let ptr = transmute(slice.as_ptr());
+                        let mods = slice::from_raw_parts(ptr, self.header.mods_count as usize);
+                        ModuleIter { mb: self, mods }
+                    })
             }
         } else {
             None
         }
     }
-    
+
     /// Publish modules to the kernel.
     ///
     /// This copies the given metadata into newly allocated memory.
@@ -430,15 +457,17 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             unsafe {
                 if let Some(mods) = self.memory_management.paddr_to_slice(
                     self.header.mods_addr.into(),
-                    self.header.mods_count as usize * core::mem::size_of::<MBModule>()
+                    self.header.mods_count as usize * core::mem::size_of::<MBModule>(),
                 ) {
                     let mods = slice::from_raw_parts(
-                        mods.as_ptr().cast::<MBModule>(), self.header.mods_count as usize
+                        mods.as_ptr().cast::<MBModule>(),
+                        self.header.mods_count as usize,
                     );
                     for module in mods {
                         self.memory_management.deallocate(module.string.into());
                     }
-                    self.memory_management.deallocate(self.header.mods_addr.into());
+                    self.memory_management
+                        .deallocate(self.header.mods_addr.into());
                 }
             }
         }
@@ -447,9 +476,10 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             let len = mods.len();
             self.header.mods_count = mods.len().try_into().unwrap();
             self.header.mods_addr = unsafe {
-                let (addr, slice) = self.memory_management.allocate(
-                    len * core::mem::size_of::<MBModule>()
-                ).unwrap();
+                let (addr, slice) = self
+                    .memory_management
+                    .allocate(len * core::mem::size_of::<MBModule>())
+                    .unwrap();
                 // change type
                 let slice = slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<MBModule>(), len);
                 for (src, dst) in mods.iter().zip(slice.iter_mut()) {
@@ -464,22 +494,22 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             };
         }
     }
-    
+
     /// Get the symbols.
     pub fn symbols(&self) -> Option<SymbolType> {
         if self.has_elf_symbols() & self.has_aout_symbols() {
             // this is not supported
-            return None
+            return None;
         }
         if self.has_elf_symbols() {
-            return Some(SymbolType::Elf(unsafe { self.header.symbols.elf }))
+            return Some(SymbolType::Elf(unsafe { self.header.symbols.elf }));
         }
         if self.has_aout_symbols() {
-            return Some(SymbolType::AOut(unsafe { self.header.symbols.aout }))
+            return Some(SymbolType::AOut(unsafe { self.header.symbols.aout }));
         }
         None
     }
-    
+
     /// Set the symbols.
     ///
     /// Note that the address in either [`AOutSymbols`] or [`ElfSymbols`] must stay valid.
@@ -491,12 +521,12 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             None => {
                 self.set_has_aout_symbols(false);
                 self.set_has_elf_symbols(false);
-            },
+            }
             Some(SymbolType::AOut(a)) => {
                 self.set_has_aout_symbols(true);
                 self.set_has_elf_symbols(false);
                 self.header.symbols.aout = a;
-            },
+            }
             Some(SymbolType::Elf(e)) => {
                 self.set_has_aout_symbols(false);
                 self.set_has_elf_symbols(true);
@@ -513,14 +543,14 @@ impl<'a, 'b> Multiboot<'a, 'b> {
                 let end = self.header.mmap_addr + self.header.mmap_length;
                 Some(MemoryMapIter {
                     current: start,
-                    end: end,
+                    end,
                     mb: self,
                 })
             }
             false => None,
         }
     }
-    
+
     /// Publish the memory regions to the kernel.
     ///
     /// The parameter is a pair of address and number of [`MemoryEntry`]s.
@@ -532,9 +562,9 @@ impl<'a, 'b> Multiboot<'a, 'b> {
         self.set_has_memory_map(regions.is_some());
         if let Some((addr, count)) = regions {
             self.header.mmap_addr = addr.try_into().unwrap();
-            self.header.mmap_length = (
-                count * core::mem::size_of::<MemoryEntry>()
-            ).try_into().unwrap();
+            self.header.mmap_length = (count * core::mem::size_of::<MemoryEntry>())
+                .try_into()
+                .unwrap();
         }
     }
 
@@ -545,27 +575,34 @@ impl<'a, 'b> Multiboot<'a, 'b> {
     pub fn find_highest_address(&self) -> PAddr {
         let end = cmp::max(
             self.header.cmdline as u64 + self.command_line().map_or(0, |f| f.len()) as u64,
-            self.header.boot_loader_name as u64 + self.boot_loader_name()
-            .map_or(0, |f| f.len()) as u64,
+            self.header.boot_loader_name as u64
+                + self.boot_loader_name().map_or(0, |f| f.len()) as u64,
         )
         .max(match self.symbols() {
             Some(SymbolType::Elf(e)) => (e.addr + e.num * e.size) as u64,
-            Some(SymbolType::AOut(a)) => (
-                a.addr + a.tabsize + a.strsize + 2 * core::mem::size_of::<u32>() as u32
-            ) as u64,
+            Some(SymbolType::AOut(a)) => {
+                (a.addr + a.tabsize + a.strsize + 2 * core::mem::size_of::<u32>() as u32) as u64
+            }
             None => 0,
         })
         .max((self.header.mmap_addr + self.header.mmap_length) as u64)
         .max((self.header.drives_addr + self.header.drives_length) as u64)
         .max(
             self.header.mods_addr as u64
-            + self.header.mods_count as u64 * core::mem::size_of::<MBModule>() as u64
+                + self.header.mods_count as u64 * core::mem::size_of::<MBModule>() as u64,
         )
-        .max(self.modules().into_iter().flatten().map(|m| m.end).max().unwrap_or(0));
+        .max(
+            self.modules()
+                .into_iter()
+                .flatten()
+                .map(|m| m.end)
+                .max()
+                .unwrap_or(0),
+        );
 
         round_up!(end, 4096)
     }
-    
+
     /// Return the framebuffer table, if it exists.
     pub fn framebuffer_table(&self) -> Option<&FramebufferTable> {
         if self.has_framebuffer_table() {
@@ -574,7 +611,7 @@ impl<'a, 'b> Multiboot<'a, 'b> {
             None
         }
     }
-    
+
     /// Set the framebuffer table, if it exists.
     pub fn set_framebuffer_table(&mut self, table: Option<FramebufferTable>) {
         self.set_has_framebuffer_table(table.is_some());
@@ -669,13 +706,15 @@ pub struct MemoryEntry {
 
 impl Debug for MemoryEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            write!(
-                f,
-                "MemoryEntry {{ size: {}, base_addr: {}, length: {}, mtype: {} }}",
-                self.size, self.base_addr, self.length, self.mtype
-            )
-        }
+        let size = self.size;
+        let base_addr = self.base_addr;
+        let length = self.length;
+        let mtype = self.mtype;
+        write!(
+            f,
+            "MemoryEntry {{ size: {}, base_addr: {}, length: {}, mtype: {} }}",
+            size, base_addr, length, mtype
+        )
     }
 }
 
@@ -692,13 +731,18 @@ impl MemoryEntry {
     /// Note that this will always create a struct that has a size of 20 bytes.
     pub fn new(base_addr: PAddr, length: PAddr, ty: MemoryType) -> Self {
         // the size field itself doesn't count
-        let size = (
-            core::mem::size_of::<MemoryEntry>() - core::mem::size_of::<u32>()
-        ).try_into().unwrap();
+        let size = (core::mem::size_of::<MemoryEntry>() - core::mem::size_of::<u32>())
+            .try_into()
+            .unwrap();
         assert_eq!(size, 20);
-        Self { size, base_addr, length, mtype: ty as u32 }
+        Self {
+            size,
+            base_addr,
+            length,
+            mtype: ty as u32,
+        }
     }
-    
+
     /// Get base of memory region.
     pub fn base_address(&self) -> PAddr {
         self.base_addr as PAddr
@@ -796,8 +840,8 @@ pub struct Module<'a> {
 impl<'a> Module<'a> {
     pub fn new(start: PAddr, end: PAddr, name: Option<&'a str>) -> Module {
         Module {
-            start: start,
-            end: end,
+            start,
+            end,
             string: name,
         }
     }
@@ -832,7 +876,7 @@ impl<'a, 'b> Iterator for ModuleIter<'a, 'b> {
 union Symbols {
     aout: AOutSymbols,
     elf: ElfSymbols,
-    _bindgen_union_align: [u32; 4usize]
+    _bindgen_union_align: [u32; 4usize],
 }
 
 /// Safe wrapper for either [`AOutSymbols`] or [`ElfSymbols`]
@@ -847,7 +891,9 @@ pub enum SymbolType {
 
 impl Default for Symbols {
     fn default() -> Self {
-        Self { elf: ElfSymbols::default() }
+        Self {
+            elf: ElfSymbols::default(),
+        }
     }
 }
 
@@ -899,7 +945,9 @@ impl ElfSymbols {
     /// Also, this doesn't check whether the supplied parameters are correct.
     pub fn from_addr(num: u32, size: u32, addr: PAddr, shndx: u32) -> Self {
         Self {
-            num, size, shndx,
+            num,
+            size,
+            shndx,
             addr: addr.try_into().unwrap(),
         }
     }
@@ -938,7 +986,12 @@ impl FramebufferTable {
     ///
     /// [`ColorInfoType::Text`]: enum.ColorInfoType.html#variant.Text
     pub fn new(
-        addr: u64, pitch: u32, width: u32, height: u32, bpp: u8, color_info_type: ColorInfoType
+        addr: u64,
+        pitch: u32,
+        width: u32,
+        height: u32,
+        bpp: u8,
+        color_info_type: ColorInfoType,
     ) -> Self {
         let (ty, color_info) = match color_info_type {
             ColorInfoType::Palette(palette) => (0, ColorInfo { palette }),
@@ -955,7 +1008,7 @@ impl FramebufferTable {
             color_info,
         }
     }
-    
+
     /// Get the color info from this table.
     pub fn color_info(&self) -> Option<ColorInfoType> {
         unsafe {
@@ -1009,7 +1062,12 @@ union ColorInfo {
 // default type is 0, so indexed color
 impl Default for ColorInfo {
     fn default() -> Self {
-        Self { palette: ColorInfoPalette { palette_addr: 0, palette_num_colors: 0 } }
+        Self {
+            palette: ColorInfoPalette {
+                palette_addr: 0,
+                palette_num_colors: 0,
+            },
+        }
     }
 }
 
